@@ -1,24 +1,54 @@
+# =============================================================================
+# dist_train_cakd.py — SCRIPT HUẤN LUYỆN CHÍNH của CAKD ("nhạc trưởng")
+# -----------------------------------------------------------------------------
+# File này RÁP mọi thứ lại và chạy training:
+#   - student   = ResNet_CAKD  (resnet50_cakd)  <- con model ta muốn dạy cho giỏi
+#   - teacher   = ViT-B/16 pretrain             <- thầy giáo, ĐÓNG BĂNG (eval)
+#   - discriminator = NLayerDiscriminator (GAN) <- "giám khảo" phân biệt attention thật/giả
+#
+# Ý tưởng: student vừa học phân loại (nhãn thật) VỪA bắt chước teacher qua 4 loss:
+#   cls_loss  : phân loại đúng nhãn (CrossEntropy)
+#   pca_loss  : khớp attention map student <-> teacher (MSE)
+#   gl_loss   : khớp logits + token + feature student <-> teacher (MSE)
+#   gan_loss  : ép attention student "trông như thật" (đối kháng GAN)
+#
+# Có 2 optimizer chạy xen kẽ (kiểu GAN):
+#   d_optimizer -> dạy discriminator phân biệt thật/giả
+#   optimizer   -> dạy student (đánh lừa discriminator + khớp teacher + phân loại)
+#
+# CẤU TRÚC FILE:
+#   train_one_epoch(): 1 epoch huấn luyện (TRÁI TIM — chứa toàn bộ logic loss & GAN)
+#   evaluate():        đánh giá accuracy trên tập test
+#   load_data():       nạp & tiền xử lý dữ liệu ImageNet
+#   main():            khởi tạo model/optimizer/scheduler + vòng lặp epoch + lưu checkpoint
+#   get_args_parser(): khai báo tham số dòng lệnh (argparse)
+# =============================================================================
+
 import datetime
 import os
 import time
 import warnings
 
-import new_utils
+import new_utils          # hộp đồ nghề: GANLoss, Discriminator, MetricLogger, accuracy... (file đã đọc)
 import torch
 import torch.utils.data
 import torchvision
-import transforms
+import transforms          # các phép augment mixup/cutmix riêng của project
 from new_utils import RASampler
 from torch import nn
 from torch.utils.data.dataloader import default_collate
 from torchvision.transforms.functional import InterpolationMode
-from torchvision.models import ViT_B_16_Weights
+from torchvision.models import ViT_B_16_Weights   # bộ trọng số pretrain của teacher ViT-B/16
 
 
+# =============================================================================
+# train_one_epoch — HUẤN LUYỆN 1 EPOCH (nơi tính loss & cập nhật trọng số)
+# =============================================================================
 def train_one_epoch(model, discriminator, teacher, mse_criterion, gan_criterion, criterion, optimizer, d_optimizer, data_loader, device, epoch, args, model_ema=None, scaler=None):
-    model.train()
-    teacher.eval()
-    discriminator.train()
+    model.train()          # student: bật chế độ train (bật dropout, cập nhật BatchNorm)
+    teacher.eval()         # teacher: chế độ eval -> ĐÓNG BĂNG, không học, chỉ phát tín hiệu
+    discriminator.train()  # discriminator: bật chế độ train
+    # Thiết lập bộ ghi log để theo dõi các loss thành phần
     metric_logger = new_utils.MetricLogger(delimiter="  ")
     metric_logger.add_meter("lr", new_utils.SmoothedValue(window_size=1, fmt="{value}"))
     metric_logger.add_meter("img/s", new_utils.SmoothedValue(window_size=10, fmt="{value}"))
@@ -28,52 +58,81 @@ def train_one_epoch(model, discriminator, teacher, mse_criterion, gan_criterion,
     metric_logger.add_meter("gan_loss", new_utils.SmoothedValue(window_size=10, fmt="{value}"))
 
     header = f"Epoch: [{epoch}]"
+    # Duyệt từng batch ảnh; log_every vừa lặp vừa in tiến độ + ETA
     for i, (image, target) in enumerate(metric_logger.log_every(data_loader, args.print_freq, header)):
         start_time = time.time()
-        image, target = image.to(device), target.to(device)
+        image, target = image.to(device), target.to(device)   # đưa dữ liệu lên GPU
+        # autocast: tự động dùng float16 ở chỗ an toàn -> nhanh hơn, đỡ tốn RAM (mixed precision)
         with torch.cuda.amp.autocast(enabled=scaler is not None):
+            # ---- CHẠY XUÔI CẢ HAI MODEL ----
+            # Student trả 4 thứ: logits, [attn_qk, attn_vv], vit_feat, cls_token (xem resnet.py)
             output, attn_weights, proj_feat, proj_token = model(image)
+            # Teacher trả 4 thứ: logits, 4 attention map, cls_token, feats (xem vision_transformer.py)
             tea_logits, tea_attn_weights, tea_token, tea_feat = teacher(image)
+
+            # ---- CHUẨN BỊ ĐẦU VÀO CHO DISCRIMINATOR (GAN) ----
+            # "Thật" = attention của teacher (bỏ class token bằng [:, 1:, 1:] -> còn 196x196),
+            #          [:, None, :, :] chèn chiều kênh =1 -> shape (batch,1,196,196) cho Conv2d.
+            #          detach() = cắt gradient (đây là "mẫu thật" cố định).
             input_d_real = tea_attn_weights[2][:, 1:, 1:].clone()[:, None, :, :].detach()
+            # "Giả" = attention của student (attn_qk). detach() vì lúc dạy discriminator không sửa student.
             input_d_fake = attn_weights[0].clone()[:, None, :, :].detach()
 
-            # pred_real = discriminator(input_d_real.detach())
-            pred_real = discriminator(input_d_real)
-            pred_fake = discriminator(input_d_fake.detach())
+            # Discriminator chấm điểm thật/giả
+            pred_real = discriminator(input_d_real)              # điểm cho attention teacher
+            pred_fake = discriminator(input_d_fake.detach())     # điểm cho attention student
+
+            # ---- TÍNH 4 LOSS THÀNH PHẦN ----
+            # 1) cls_loss: phân loại đúng nhãn thật (CrossEntropy) — nhiệm vụ chính của student
             cls_loss = criterion(output, target)
-            # pca_loss = 0.2 * mse_criterion(attn_weights[0], tea_attn_weights[2][:, 1:, 1:].detach()) + 0.05 * mse_criterion(attn_weights[1], tea_attn_weights[3][:, 1:, 1:])
+            # 2) pca_loss: ép attention student GIỐNG teacher (MSE). Dùng 2 attention (qk & vv) với
+            #    trọng số 0.2 và 0.05. .detach() ở phía teacher vì teacher không học.
             pca_loss = 0.2 * mse_criterion(attn_weights[0], tea_attn_weights[2][:, 1:, 1:].detach()) + 0.05 * mse_criterion(attn_weights[1], tea_attn_weights[3][:, 1:, 1:].detach())
+            # 3) gl_loss: ép logits/token/feature student giống teacher (KD "mềm" + khớp đặc trưng)
             gl_loss = mse_criterion(output, tea_logits.detach()) +  mse_criterion(proj_token, tea_token) + 0.05 * mse_criterion(proj_feat, tea_feat.detach())
+            # 4) gan_loss (dạy DISCRIMINATOR): teacher -> True (thật), student -> False (giả).
+            #    Đây là loss để CẬP NHẬT DISCRIMINATOR, không phải student.
             gan_loss = 0.5 * (gan_criterion(pred_real.detach(), True) + gan_criterion(pred_fake, False))
-            # loss = cls_loss + min(max(epoch-25, 0)/50.0, 0.2) * 1.0 * (pca_loss + gl_loss + 0.05 * gan_criterion(pred_real.detach(), True) + gan_criterion(pred_fake.detach(), True))
+
+            # ---- TỔNG LOSS CHO STUDENT ----
+            # Hệ số min(max(epoch-25,0)/50, 0.2): "khởi động chậm" — 25 epoch đầu chỉ học phân loại
+            # (hệ số=0), rồi TĂNG DẦN ảnh hưởng của distill, chặn trần ở 0.2. Tránh làm hỏng student sớm.
+            # Trong ngoặc: pca_loss + gl_loss + phần GAN ép student đánh lừa discriminator
+            # (gan_criterion(pred_fake, True) = student MUỐN discriminator tưởng attention của nó là THẬT).
             loss = cls_loss + min(max(epoch-25, 0)/50.0, 0.2) * 1.0 * (pca_loss + gl_loss + 0.05 * gan_criterion(pred_real.detach(), True) + gan_criterion(pred_fake, True))
 
-        d_optimizer.zero_grad()
-        gan_loss.backward(retain_graph=True)
-        d_optimizer.step()
+        # ---- BƯỚC 1: CẬP NHẬT DISCRIMINATOR ----
+        d_optimizer.zero_grad()                  # xóa gradient cũ
+        gan_loss.backward(retain_graph=True)     # lan truyền ngược gan_loss; giữ lại đồ thị để backward loss kế
+        d_optimizer.step()                       # cập nhật trọng số discriminator
 
+        # ---- BƯỚC 2: CẬP NHẬT STUDENT ----
         optimizer.zero_grad()
         if scaler is not None:
+            # Nhánh mixed-precision (AMP): scale loss để tránh underflow float16
             scaler.scale(loss).backward()
             if args.clip_grad_norm is not None:
-                # we should unscale the gradients of optimizer's assigned params if do gradient clipping
+                # Nếu cắt gradient thì phải "unscale" trước
                 scaler.unscale_(optimizer)
                 nn.utils.clip_grad_norm_(model.parameters(), args.clip_grad_norm)
             scaler.step(optimizer)
             scaler.update()
         else:
+            # Nhánh thường (float32)
             loss.backward()
             if args.clip_grad_norm is not None:
-                nn.utils.clip_grad_norm_(model.parameters(), args.clip_grad_norm)
+                nn.utils.clip_grad_norm_(model.parameters(), args.clip_grad_norm)   # cắt gradient chống bùng nổ
             optimizer.step()
 
+        # ---- CẬP NHẬT MODEL EMA (bản trung bình mượt của student, nếu bật) ----
         if model_ema and i % args.model_ema_steps == 0:
             model_ema.update_parameters(model)
             if epoch < args.lr_warmup_epochs:
-                # Reset ema buffer to keep copying weights during warmup period
+                # Trong giai đoạn warmup: reset để EMA cứ copy thẳng trọng số (chưa làm mượt)
                 model_ema.n_averaged.fill_(0)
 
-        acc1, acc5 = new_utils.accuracy(output, target, topk=(1, 5))
+        # ---- GHI LOG SỐ LIỆU ----
+        acc1, acc5 = new_utils.accuracy(output, target, topk=(1, 5))   # accuracy top-1/top-5
         batch_size = image.shape[0]
         metric_logger.update(loss=loss.item(), lr=optimizer.param_groups[0]["lr"])
         metric_logger.meters["acc1"].update(acc1.item(), n=batch_size)
@@ -85,17 +144,20 @@ def train_one_epoch(model, discriminator, teacher, mse_criterion, gan_criterion,
         metric_logger.meters["gan_loss"].update(gan_loss.item(), n=batch_size)
 
 
+# =============================================================================
+# evaluate — ĐÁNH GIÁ accuracy trên tập test (chỉ chạy xuôi, không học)
+# =============================================================================
 def evaluate(model, criterion, data_loader, device, print_freq=100, log_suffix=""):
-    model.eval()
+    model.eval()   # chế độ eval (tắt dropout, dùng thống kê BatchNorm đã học)
     metric_logger = new_utils.MetricLogger(delimiter="  ")
     header = f"Test: {log_suffix}"
 
     num_processed_samples = 0
-    with torch.inference_mode():
+    with torch.inference_mode():   # tắt autograd -> nhanh, tiết kiệm RAM
         for image, target in metric_logger.log_every(data_loader, print_freq, header):
             image = image.to(device, non_blocking=True)
             target = target.to(device, non_blocking=True)
-            output, _, _, _ = model(image)
+            output, _, _, _ = model(image)   # chỉ lấy logits (bỏ 3 đầu ra distill bằng _)
             loss = criterion(output, target)
 
             acc1, acc5 = new_utils.accuracy(output, target, topk=(1, 5))
@@ -128,7 +190,14 @@ def evaluate(model, criterion, data_loader, device, print_freq=100, log_suffix="
     return metric_logger.acc1.global_avg
 
 
+# =============================================================================
+# load_data & tiện ích — NẠP VÀ TIỀN XỬ LÝ DỮ LIỆU ImageNet (boilerplate torchvision)
+# -----------------------------------------------------------------------------
+# Phần này chuẩn của torchvision: đọc ảnh từ thư mục, áp augment (train) / resize-crop
+# (test), tạo sampler cho đa GPU, cache dataset cho nhanh. Không chứa logic CAKD riêng.
+# =============================================================================
 def _get_cache_path(filepath):
+    # Tạo đường dẫn file cache cho dataset (đặt tên theo hash của đường dẫn gốc)
     import hashlib
 
     h = hashlib.sha1(filepath.encode()).hexdigest()
@@ -138,7 +207,7 @@ def _get_cache_path(filepath):
 
 
 def load_data(traindir, valdir, args):
-    # Data loading code
+    # Nạp dữ liệu train + validation, trả về dataset và sampler tương ứng
     print("Loading data")
     val_resize_size, val_crop_size, train_crop_size = (
         args.val_resize_size,
@@ -216,11 +285,14 @@ def load_data(traindir, valdir, args):
     return dataset, dataset_test, train_sampler, test_sampler
 
 
+# =============================================================================
+# main — KHỞI TẠO TẤT CẢ + VÒNG LẶP HUẤN LUYỆN
+# =============================================================================
 def main(args):
     if args.output_dir:
-        new_utils.mkdir(args.output_dir)
+        new_utils.mkdir(args.output_dir)      # tạo thư mục lưu kết quả
 
-    new_utils.init_distributed_mode(args)
+    new_utils.init_distributed_mode(args)     # thiết lập train đa GPU (nếu có)
     print(args)
 
     device = torch.device(args.device)
@@ -261,20 +333,24 @@ def main(args):
     )
 
     print("Creating model")
-    model = torchvision.models.resnet50_cakd(num_classes=num_classes)
-    teacher = torchvision.models.vit_b_16(weights=ViT_B_16_Weights.IMAGENET1K_V1)
+    # >>> TẠO BỘ BA MODEL CỦA CAKD <<<
+    model = torchvision.models.resnet50_cakd(num_classes=num_classes)   # STUDENT (ResNet-50 độ thêm)
+    teacher = torchvision.models.vit_b_16(weights=ViT_B_16_Weights.IMAGENET1K_V1)   # TEACHER (ViT pretrain)
+    # DISCRIMINATOR: input_nc=1 (attention map 1 kênh), ndf=8 (nhẹ), 3 lớp
     discriminator = new_utils.NLayerDiscriminator(input_nc=1, ndf=8, n_layers=3)
     model.to(device)
     teacher.to(device)
     discriminator.to(device)
 
     if args.distributed and args.sync_bn:
+        # Đồng bộ BatchNorm giữa các GPU (khi batch mỗi GPU nhỏ)
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
         discriminator = torch.nn.SyncBatchNorm.convert_sync_batchnorm(discriminator)
 
-    criterion = nn.CrossEntropyLoss(label_smoothing=args.label_smoothing)
-    mse_criterion = nn.MSELoss()
-    gan_criterion = new_utils.GANLoss().to(device)
+    # >>> 3 HÀM LOSS <<<
+    criterion = nn.CrossEntropyLoss(label_smoothing=args.label_smoothing)   # cls_loss (phân loại)
+    mse_criterion = nn.MSELoss()                                            # pca_loss & gl_loss (khớp đặc trưng)
+    gan_criterion = new_utils.GANLoss().to(device)                          # gan_loss (đối kháng)
 
     custom_keys_weight_decay = []
     if args.bias_weight_decay is not None:
@@ -307,9 +383,12 @@ def main(args):
     else:
         raise RuntimeError(f"Invalid optimizer {args.opt}. Only SGD, RMSprop and AdamW are supported.")
 
+    # optimizer RIÊNG cho discriminator, learning rate nhỏ hơn 100 lần (0.01*lr) -> discriminator
+    # học chậm hơn student, tránh nó "quá mạnh" làm hỏng cân bằng đối kháng.
     d_optimizer = torch.optim.SGD(discriminator.parameters(), lr=0.01*args.lr, momentum=args.momentum, weight_decay=args.weight_decay, nesterov="nesterov" in opt_name)
-    scaler = torch.cuda.amp.GradScaler() if args.amp else None
+    scaler = torch.cuda.amp.GradScaler() if args.amp else None   # bộ scale gradient cho mixed-precision (AMP)
 
+    # ----- Bộ điều chỉnh learning rate theo epoch (mỗi optimizer 1 bộ, tên có tiền tố d_ là cho discriminator) -----
     args.lr_scheduler = args.lr_scheduler.lower()
     if args.lr_scheduler == "steplr":
         main_lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=args.lr_step_size, gamma=args.lr_gamma)
@@ -359,10 +438,13 @@ def main(args):
         lr_scheduler = main_lr_scheduler
         d_lr_scheduler = d_main_lr_scheduler
 
+    # Giữ tham chiếu tới model "trần" (chưa bọc DDP) để lưu/nạp trọng số cho gọn
     model_without_ddp = model
     teacher_without_ddp = teacher
     discriminator_without_ddp = discriminator
     if args.distributed:
+        # Bọc DistributedDataParallel để chạy song song nhiều GPU. find_unused_parameters=True vì
+        # student có nhánh distill (pca_proj/gl_proj) không phải batch nào cũng dùng hết -> tránh lỗi DDP.
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu],find_unused_parameters=True)
         teacher = torch.nn.parallel.DistributedDataParallel(teacher, device_ids=[args.gpu],find_unused_parameters=True)
         discriminator = torch.nn.parallel.DistributedDataParallel(discriminator, device_ids=[args.gpu])
@@ -407,13 +489,15 @@ def main(args):
 
     print("Start training")
     start_time = time.time()
+    # ===== VÒNG LẶP HUẤN LUYỆN CHÍNH: lặp qua từng epoch =====
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
-            train_sampler.set_epoch(epoch)
+            train_sampler.set_epoch(epoch)   # đổi cách trộn dữ liệu mỗi epoch (đồng bộ giữa các GPU)
+        # Huấn luyện 1 epoch (chạy toàn bộ logic loss & GAN ở train_one_epoch phía trên)
         train_one_epoch(model, discriminator, teacher, mse_criterion, gan_criterion, criterion, optimizer, d_optimizer, data_loader, device, epoch, args, model_ema, scaler)
-        lr_scheduler.step()
-        d_lr_scheduler.step()
-        evaluate(model, criterion, data_loader_test, device=device)
+        lr_scheduler.step()      # giảm learning rate của student theo lịch
+        d_lr_scheduler.step()    # giảm learning rate của discriminator theo lịch
+        evaluate(model, criterion, data_loader_test, device=device)   # đánh giá accuracy sau epoch
         if model_ema:
             evaluate(model_ema, criterion, data_loader_test, device=device, log_suffix="EMA")
         if args.output_dir:
@@ -437,6 +521,13 @@ def main(args):
     print(f"Training time {total_time_str}")
 
 
+# =============================================================================
+# get_args_parser — KHAI BÁO THAM SỐ DÒNG LỆNH (boilerplate argparse)
+# -----------------------------------------------------------------------------
+# Toàn bộ các cờ để chỉnh khi chạy: --data-path, --batch-size, --lr, --epochs,
+# --amp (mixed precision), --distributed... Xem file experiments/run_cakd.sh để
+# biết lệnh chạy thực tế truyền cờ nào. Không chứa logic mạng.
+# =============================================================================
 def get_args_parser(add_help=True):
     import argparse
 
@@ -567,6 +658,7 @@ def get_args_parser(add_help=True):
     return parser
 
 
+# Điểm bắt đầu khi chạy `python dist_train_cakd.py ...`: đọc tham số dòng lệnh rồi gọi main()
 if __name__ == "__main__":
     args = get_args_parser().parse_args()
     main(args)
