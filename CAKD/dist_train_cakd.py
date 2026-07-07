@@ -6,7 +6,7 @@
 #   - teacher   = ViT-B/16 pretrain             <- thầy giáo, ĐÓNG BĂNG (eval)
 #   - discriminator = NLayerDiscriminator (GAN) <- "giám khảo" phân biệt attention thật/giả
 #
-# Ý tưởng: student vừa học phân loại (nhãn thật) VỪA bắt chước teacher qua 4 loss:
+# Ý tưởng: student vừa học phân loại (nhãn thật) VỪA bắt chước teacher qua 4 loss:z
 #   cls_loss  : phân loại đúng nhãn (CrossEntropy)
 #   pca_loss  : khớp attention map student <-> teacher (MSE)
 #   gl_loss   : khớp logits + token + feature student <-> teacher (MSE)

@@ -1,0 +1,274 @@
+<title>CAKD — Sơ đồ luồng huấn luyện</title>
+<style>
+  :root {
+    --bg: #f5f7fa; --surface: #ffffff; --surface-2: #eef1f6; --border: #d8dee9;
+    --ink: #1a2230; --muted: #5a6b82;
+    --font-sans: system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Code", "Consolas", monospace;
+    --student: #0d9488; --student-bg: #dcf3ef;
+    --teacher: #b45309; --teacher-bg: #fbecd9;
+    --disc: #7c3aed;    --disc-bg: #ece2fb;
+    --loss: #e11d48;    --loss-bg: #fcdde5;
+    --neutral: #64748b; --neutral-bg: #eceff4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1017; --surface: #151a23; --surface-2: #1c222d; --border: #2a323f;
+      --ink: #e6ebf2; --muted: #8a99ad;
+      --student: #2dd4bf; --student-bg: #123430;
+      --teacher: #fbbf24; --teacher-bg: #362810;
+      --disc: #a78bfa;    --disc-bg: #271c42;
+      --loss: #fb7185;    --loss-bg: #3d1723;
+      --neutral: #94a3b8; --neutral-bg: #1f2632;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #f5f7fa; --surface: #ffffff; --surface-2: #eef1f6; --border: #d8dee9;
+    --ink: #1a2230; --muted: #5a6b82;
+    --student: #0d9488; --student-bg: #dcf3ef; --teacher: #b45309; --teacher-bg: #fbecd9;
+    --disc: #7c3aed; --disc-bg: #ece2fb; --loss: #e11d48; --loss-bg: #fcdde5;
+    --neutral: #64748b; --neutral-bg: #eceff4;
+  }
+  :root[data-theme="dark"] {
+    --bg: #0d1017; --surface: #151a23; --surface-2: #1c222d; --border: #2a323f;
+    --ink: #e6ebf2; --muted: #8a99ad;
+    --student: #2dd4bf; --student-bg: #123430; --teacher: #fbbf24; --teacher-bg: #362810;
+    --disc: #a78bfa; --disc-bg: #271c42; --loss: #fb7185; --loss-bg: #3d1723;
+    --neutral: #94a3b8; --neutral-bg: #1f2632;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-sans); line-height: 1.5; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 36px 18px 70px; }
+  .eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+  h1 { font-size: clamp(24px, 4vw, 34px); line-height: 1.12; margin: 0 0 10px; text-wrap: balance; letter-spacing: -.01em; }
+  .lede { color: var(--muted); font-size: 15.5px; max-width: 64ch; margin: 0; }
+  .lede code, .note code { font-family: var(--font-mono); background: var(--surface-2); padding: 1px 5px; border-radius: 4px; font-size: .9em; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 9px 18px; margin: 20px 0 4px; }
+  .legend span { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: var(--muted); }
+  .dot { width: 11px; height: 11px; border-radius: 3px; flex: none; }
+
+  .board { margin-top: 22px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 10px; overflow-x: auto; }
+  svg.diagram { display: block; width: 100%; height: auto; min-width: 860px; }
+
+  /* SVG node styles */
+  .n-student { fill: var(--student-bg); stroke: var(--student); }
+  .n-teacher { fill: var(--teacher-bg); stroke: var(--teacher); }
+  .n-disc    { fill: var(--disc-bg);    stroke: var(--disc); }
+  .n-loss    { fill: var(--loss-bg);    stroke: var(--loss); }
+  .n-neutral { fill: var(--neutral-bg); stroke: var(--neutral); }
+  .node rect { stroke-width: 1.6; }
+  .node rect.branch { stroke-width: 2.2; stroke-dasharray: 6 3.5; }
+  .nt { fill: var(--ink); font: 600 12.5px var(--font-sans); }
+  .ns { fill: var(--muted); font: 11px var(--font-mono); }
+  .band { fill: var(--muted); font: 700 11px var(--font-mono); letter-spacing: .12em; opacity: .8; }
+  .elab { fill: var(--muted); font: 10.5px var(--font-mono); }
+
+  .e { fill: none; stroke-width: 1.6; opacity: .8; }
+  .e-s { stroke: var(--student); }
+  .e-t { stroke: var(--teacher); }
+  .e-n { stroke: var(--neutral); }
+  .e-d { stroke: var(--disc); }
+  .e-l { stroke: var(--loss); stroke-width: 2; opacity: .9; }
+  .e-faint { opacity: .5; }
+
+  .note { font-size: 13.5px; color: var(--muted); margin: 16px 2px 0; }
+  .note strong { color: var(--ink); font-weight: 600; }
+  .phase-line { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .chip { font-size: 12.5px; border-radius: 8px; padding: 7px 11px; background: var(--surface-2); border: 1px solid var(--border); }
+  .chip b { font-family: var(--font-mono); font-weight: 700; }
+  .chip.a b { color: var(--muted); } .chip.b b { color: var(--teacher); } .chip.c b { color: var(--student); }
+</style>
+
+<div class="wrap">
+  <p class="eyebrow">Cross-Architecture Knowledge Distillation</p>
+  <h1>CAKD — Luồng dữ liệu đi qua các block</h1>
+  <p class="lede">Một ảnh vào cả hai model. <strong>Student ResNet-50</strong> (trái) và <strong>Teacher ViT-B/16</strong> (phải) chạy song song; 4 đầu ra mỗi bên hội tụ về các <strong>loss</strong> ở giữa, có <strong>Discriminator</strong> (GAN) hỗ trợ. Chữ trong ngoặc là shape tensor, <code>B</code> = batch.</p>
+  <div class="legend">
+    <span><i class="dot" style="background:var(--student)"></i> Student (học)</span>
+    <span><i class="dot" style="background:var(--teacher)"></i> Teacher (đóng băng)</span>
+    <span><i class="dot" style="background:var(--disc)"></i> Discriminator</span>
+    <span><i class="dot" style="background:var(--loss)"></i> Loss</span>
+  </div>
+
+  <div class="board">
+    <svg class="diagram" viewBox="0 0 1000 950" role="img" aria-label="Sơ đồ luồng huấn luyện CAKD">
+      <defs>
+        <marker id="aS" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--student)"/></marker>
+        <marker id="aT" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--teacher)"/></marker>
+        <marker id="aN" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--neutral)"/></marker>
+        <marker id="aD" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--disc)"/></marker>
+        <marker id="aL" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--loss)"/></marker>
+      </defs>
+
+      <!-- band labels -->
+      <text class="band" x="175" y="88" text-anchor="middle">STUDENT · ResNet-50</text>
+      <text class="band" x="825" y="88" text-anchor="middle">TEACHER · ViT-B/16</text>
+      <text class="band" x="500" y="545" text-anchor="middle">LOSS</text>
+
+      <!-- ===== EDGES (drawn first) ===== -->
+      <!-- image split -->
+      <path class="e e-n" d="M455,48 C300,52 200,70 190,100" marker-end="url(#aN)"/>
+      <path class="e e-n" d="M545,48 C700,52 800,70 810,100" marker-end="url(#aN)"/>
+      <!-- student chain -->
+      <path class="e e-s" d="M175,142 L175,158" marker-end="url(#aS)"/>
+      <path class="e e-s" d="M175,200 L175,216" marker-end="url(#aS)"/>
+      <path class="e e-s" d="M175,258 L175,274" marker-end="url(#aS)"/>
+      <path class="e e-s" d="M175,316 L175,332" marker-end="url(#aS)"/>
+      <path class="e e-s" d="M175,378 L175,440" marker-end="url(#aS)"/>
+      <path class="e e-s" d="M175,482 L175,498" marker-end="url(#aS)"/>
+      <!-- layer3 -> distill projections -->
+      <path class="e e-s" d="M275,350 C300,348 300,448 300,448" marker-end="url(#aS)"/>
+      <path class="e e-s" d="M275,368 C295,420 300,506 300,506" marker-end="url(#aS)"/>
+      <!-- projections -> chips -->
+      <path class="e e-s" d="M387,468 C360,530 345,565 332,596" marker-end="url(#aS)"/>
+      <path class="e e-s" d="M387,526 C360,585 348,620 332,644" marker-end="url(#aS)"/>
+      <!-- cnn_token -> logits / cls_token -->
+      <path class="e e-s" d="M175,540 C175,650 205,711 235,711" marker-end="url(#aS)"/>
+      <path class="e e-s" d="M175,540 C175,705 205,759 235,759" marker-end="url(#aS)"/>
+      <text class="elab" x="150" y="620">fc</text>
+      <text class="elab" x="120" y="700">cls_proj</text>
+      <!-- teacher chain -->
+      <path class="e e-t" d="M825,142 L825,158" marker-end="url(#aT)"/>
+      <path class="e e-t" d="M825,200 L825,216" marker-end="url(#aT)"/>
+      <!-- encoder -> teacher chips -->
+      <path class="e e-t" d="M825,308 C782,420 720,560 768,600" marker-end="url(#aT)"/>
+      <path class="e e-t" d="M825,308 C802,470 742,620 765,648" marker-end="url(#aT)"/>
+      <path class="e e-t" d="M825,308 C818,520 762,680 765,696" marker-end="url(#aT)"/>
+      <path class="e e-t" d="M825,308 C828,560 782,730 765,744" marker-end="url(#aT)"/>
+
+      <!-- student outputs -> losses -->
+      <path class="e e-s" d="M405,615 C416,660 420,700 425,714" marker-end="url(#aS)"/>          <!-- attn -> pca -->
+      <path class="e e-s" d="M405,615 C412,635 413,655 415,663" marker-end="url(#aS)"/>          <!-- attn -> D -->
+      <path class="e e-s" d="M405,711 C416,672 420,640 425,625" marker-end="url(#aS)"/>          <!-- logits -> cls -->
+      <path class="e e-s e-faint" d="M405,711 C416,742 420,762 425,769" marker-end="url(#aS)"/>  <!-- logits -> gl -->
+      <path class="e e-s e-faint" d="M405,663 C416,715 419,760 425,770" marker-end="url(#aS)"/>  <!-- vitfeat -> gl -->
+      <path class="e e-s e-faint" d="M405,759 C414,765 420,769 425,772" marker-end="url(#aS)"/>  <!-- clstok -> gl -->
+      <!-- target -> cls -->
+      <path class="e e-n" d="M500,586 L500,596" marker-end="url(#aN)"/>
+      <!-- teacher outputs -> losses -->
+      <path class="e e-t" d="M595,615 C584,660 580,700 575,714" marker-end="url(#aT)"/>          <!-- tattn -> pca -->
+      <path class="e e-t" d="M595,615 C588,635 587,655 585,663" marker-end="url(#aT)"/>          <!-- tattn -> D -->
+      <path class="e e-t e-faint" d="M595,711 C584,742 580,762 575,769" marker-end="url(#aT)"/>  <!-- tlogits -> gl -->
+      <path class="e e-t e-faint" d="M595,663 C584,715 581,760 575,770" marker-end="url(#aT)"/>  <!-- tfeat -> gl -->
+      <path class="e e-t e-faint" d="M595,759 C586,765 580,769 575,772" marker-end="url(#aT)"/>  <!-- ttok -> gl -->
+
+      <!-- losses -> total -->
+      <path class="e e-l" d="M500,638 C500,715 500,775 500,820" marker-end="url(#aL)"/>
+      <path class="e e-l" d="M500,690 C520,740 512,790 505,820" marker-end="url(#aL)"/>
+      <path class="e e-l" d="M500,742 L500,820" marker-end="url(#aL)"/>
+      <path class="e e-l" d="M500,794 L500,820" marker-end="url(#aL)"/>
+
+      <!-- ===== NODES ===== -->
+      <!-- image -->
+      <g class="node"><rect class="n-neutral" x="405" y="26" width="190" height="44" rx="9"/>
+        <text class="nt" x="500" y="46" text-anchor="middle">INPUT · ảnh</text>
+        <text class="ns" x="500" y="61" text-anchor="middle">(B, 3, 224, 224)</text></g>
+
+      <!-- student blocks -->
+      <g class="node"><rect class="n-student" x="75" y="100" width="200" height="42" rx="8"/>
+        <text class="nt" x="175" y="119" text-anchor="middle">stem · conv7×7 s2</text>
+        <text class="ns" x="175" y="134" text-anchor="middle">(B, 64, 112, 112)</text></g>
+      <g class="node"><rect class="n-student" x="75" y="158" width="200" height="42" rx="8"/>
+        <text class="nt" x="175" y="177" text-anchor="middle">maxpool</text>
+        <text class="ns" x="175" y="192" text-anchor="middle">(B, 64, 56, 56)</text></g>
+      <g class="node"><rect class="n-student" x="75" y="216" width="200" height="42" rx="8"/>
+        <text class="nt" x="175" y="235" text-anchor="middle">layer1 · 3 block</text>
+        <text class="ns" x="175" y="250" text-anchor="middle">(B, 256, 56, 56)</text></g>
+      <g class="node"><rect class="n-student" x="75" y="274" width="200" height="42" rx="8"/>
+        <text class="nt" x="175" y="293" text-anchor="middle">layer2 · 4 block s2</text>
+        <text class="ns" x="175" y="308" text-anchor="middle">(B, 512, 28, 28)</text></g>
+      <g class="node"><rect class="n-student branch" x="75" y="332" width="200" height="46" rx="8"/>
+        <text class="nt" x="175" y="353" text-anchor="middle">layer3 → x_3 · rẽ nhánh</text>
+        <text class="ns" x="175" y="368" text-anchor="middle">(B, 1024, 14, 14)</text></g>
+      <g class="node"><rect class="n-student" x="75" y="440" width="200" height="42" rx="8"/>
+        <text class="nt" x="175" y="459" text-anchor="middle">layer4 · 3 block s2</text>
+        <text class="ns" x="175" y="474" text-anchor="middle">(B, 2048, 7, 7)</text></g>
+      <g class="node"><rect class="n-student" x="75" y="498" width="200" height="42" rx="8"/>
+        <text class="nt" x="175" y="517" text-anchor="middle">avgpool → cnn_token</text>
+        <text class="ns" x="175" y="532" text-anchor="middle">(B, 2048)</text></g>
+
+      <!-- distill projections -->
+      <g class="node"><rect class="n-student" x="300" y="428" width="175" height="40" rx="8"/>
+        <text class="nt" x="387" y="446" text-anchor="middle">pca_proj · Attention</text>
+        <text class="ns" x="387" y="460" text-anchor="middle">16 heads</text></g>
+      <g class="node"><rect class="n-student" x="300" y="486" width="175" height="40" rx="8"/>
+        <text class="nt" x="387" y="504" text-anchor="middle">gl_proj · GLProj</text>
+        <text class="ns" x="387" y="518" text-anchor="middle">1024 → 768</text></g>
+
+      <!-- student output chips -->
+      <g class="node"><rect class="n-student" x="235" y="596" width="170" height="38" rx="8"/>
+        <text class="nt" x="320" y="613" text-anchor="middle">attn_qk / attn_vv</text>
+        <text class="ns" x="320" y="627" text-anchor="middle">(B, 196, 196)</text></g>
+      <g class="node"><rect class="n-student" x="235" y="644" width="170" height="38" rx="8"/>
+        <text class="nt" x="320" y="661" text-anchor="middle">vit_feat</text>
+        <text class="ns" x="320" y="675" text-anchor="middle">(B, 196, 768)</text></g>
+      <g class="node"><rect class="n-student" x="235" y="692" width="170" height="38" rx="8"/>
+        <text class="nt" x="320" y="709" text-anchor="middle">logits</text>
+        <text class="ns" x="320" y="723" text-anchor="middle">(B, 1000)</text></g>
+      <g class="node"><rect class="n-student" x="235" y="740" width="170" height="38" rx="8"/>
+        <text class="nt" x="320" y="757" text-anchor="middle">cls_token</text>
+        <text class="ns" x="320" y="771" text-anchor="middle">(B, 768)</text></g>
+
+      <!-- teacher blocks -->
+      <g class="node"><rect class="n-teacher" x="725" y="100" width="200" height="42" rx="8"/>
+        <text class="nt" x="825" y="119" text-anchor="middle">patch embed · 16×16</text>
+        <text class="ns" x="825" y="134" text-anchor="middle">(B, 196, 768)</text></g>
+      <g class="node"><rect class="n-teacher" x="725" y="158" width="200" height="42" rx="8"/>
+        <text class="nt" x="825" y="177" text-anchor="middle">+ [CLS] token</text>
+        <text class="ns" x="825" y="192" text-anchor="middle">(B, 197, 768)</text></g>
+      <g class="node"><rect class="n-teacher" x="725" y="216" width="200" height="92" rx="8"/>
+        <text class="nt" x="825" y="256" text-anchor="middle">Encoder × 12 lớp</text>
+        <text class="ns" x="825" y="272" text-anchor="middle">+ pos · attention</text>
+        <text class="ns" x="825" y="288" text-anchor="middle">(B, 197, 768)</text></g>
+
+      <!-- teacher output chips -->
+      <g class="node"><rect class="n-teacher" x="595" y="596" width="170" height="38" rx="8"/>
+        <text class="nt" x="680" y="613" text-anchor="middle">tea_attn</text>
+        <text class="ns" x="680" y="627" text-anchor="middle">(B,197,197)→196</text></g>
+      <g class="node"><rect class="n-teacher" x="595" y="644" width="170" height="38" rx="8"/>
+        <text class="nt" x="680" y="661" text-anchor="middle">tea_feat</text>
+        <text class="ns" x="680" y="675" text-anchor="middle">(B, 196, 768)</text></g>
+      <g class="node"><rect class="n-teacher" x="595" y="692" width="170" height="38" rx="8"/>
+        <text class="nt" x="680" y="709" text-anchor="middle">tea_logits</text>
+        <text class="ns" x="680" y="723" text-anchor="middle">(B, 1000)</text></g>
+      <g class="node"><rect class="n-teacher" x="595" y="740" width="170" height="38" rx="8"/>
+        <text class="nt" x="680" y="757" text-anchor="middle">tea_token</text>
+        <text class="ns" x="680" y="771" text-anchor="middle">(B, 768)</text></g>
+
+      <!-- target -->
+      <g class="node"><rect class="n-neutral" x="435" y="556" width="130" height="30" rx="7"/>
+        <text class="nt" x="500" y="576" text-anchor="middle">target · nhãn thật</text></g>
+
+      <!-- loss nodes -->
+      <g class="node"><rect class="n-loss" x="425" y="596" width="150" height="42" rx="8"/>
+        <text class="nt" x="500" y="614" text-anchor="middle">cls_loss</text>
+        <text class="ns" x="500" y="629" text-anchor="middle">CrossEntropy</text></g>
+      <g class="node"><rect class="n-disc" x="415" y="648" width="170" height="42" rx="8"/>
+        <text class="nt" x="500" y="666" text-anchor="middle">Discriminator</text>
+        <text class="ns" x="500" y="681" text-anchor="middle">→ gan_loss</text></g>
+      <g class="node"><rect class="n-loss" x="425" y="700" width="150" height="42" rx="8"/>
+        <text class="nt" x="500" y="718" text-anchor="middle">pca_loss</text>
+        <text class="ns" x="500" y="733" text-anchor="middle">0.2·MSE + 0.05·MSE</text></g>
+      <g class="node"><rect class="n-loss" x="425" y="752" width="150" height="42" rx="8"/>
+        <text class="nt" x="500" y="770" text-anchor="middle">gl_loss</text>
+        <text class="ns" x="500" y="785" text-anchor="middle">MSE · MSE · MSE</text></g>
+
+      <!-- total loss -->
+      <g class="node"><rect class="n-loss" x="250" y="820" width="500" height="66" rx="10"/>
+        <text class="nt" x="500" y="843" text-anchor="middle" style="font-size:13.5px">loss = cls_loss + λ(epoch) · ( pca_loss + gl_loss + GAN )</text>
+        <text class="ns" x="500" y="863" text-anchor="middle">λ(epoch) = min( max(epoch − 25, 0) / 50 , 0.2 )</text>
+        <text class="ns" x="500" y="878" text-anchor="middle" style="fill:var(--muted)">→ optimizer cập nhật Student · teacher đóng băng</text></g>
+    </svg>
+  </div>
+
+  <p class="note"><strong>Cách đọc:</strong> mũi tên xanh lá = luồng Student, cam = Teacher, tím = Discriminator, đỏ = gộp loss. Nhánh <em>distill</em> (pca_proj / gl_proj) rẽ ra tại <code>layer3</code>; nhánh chính chạy tiếp xuống <code>layer4 → fc</code>. Mỗi loss nối student ↔ teacher tương ứng (đường mờ = các đầu vào phụ của <code>gl_loss</code>).</p>
+
+  <div class="phase-line">
+    <span class="chip a">Epoch 0–25 · <b>λ = 0</b> — chỉ cls_loss (tắt distill/GAN)</span>
+    <span class="chip b">Epoch 26–34 · <b>λ: 0.02→0.18</b> — bật distill tăng dần</span>
+    <span class="chip c">Epoch 35–89 · <b>λ = 0.2</b> — chạm trần, chạy hết</span>
+  </div>
+  <p class="note"><strong>Khi chạy thật:</strong> chỉ giữ nhánh <code>stem → layer1..4 → fc → logits</code>; bỏ toàn bộ pca_proj / gl_proj / cls_proj, Discriminator và Teacher.</p>
+</div>
