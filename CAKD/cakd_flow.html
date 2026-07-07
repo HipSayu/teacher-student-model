@@ -15,10 +15,8 @@
     :root {
       --bg: #0d1017; --surface: #151a23; --surface-2: #1c222d; --border: #2a323f;
       --ink: #e6ebf2; --muted: #8a99ad;
-      --student: #2dd4bf; --student-bg: #123430;
-      --teacher: #fbbf24; --teacher-bg: #362810;
-      --disc: #a78bfa;    --disc-bg: #271c42;
-      --loss: #fb7185;    --loss-bg: #3d1723;
+      --student: #2dd4bf; --student-bg: #123430; --teacher: #fbbf24; --teacher-bg: #362810;
+      --disc: #a78bfa; --disc-bg: #271c42; --loss: #fb7185; --loss-bg: #3d1723;
       --neutral: #94a3b8; --neutral-bg: #1f2632;
     }
   }
@@ -39,39 +37,36 @@
 
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-sans); line-height: 1.5; -webkit-font-smoothing: antialiased; }
-  .wrap { max-width: 1080px; margin: 0 auto; padding: 36px 18px 70px; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 36px 18px 70px; }
   .eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
   h1 { font-size: clamp(24px, 4vw, 34px); line-height: 1.12; margin: 0 0 10px; text-wrap: balance; letter-spacing: -.01em; }
-  .lede { color: var(--muted); font-size: 15.5px; max-width: 64ch; margin: 0; }
+  .lede { color: var(--muted); font-size: 15.5px; max-width: 66ch; margin: 0; }
   .lede code, .note code { font-family: var(--font-mono); background: var(--surface-2); padding: 1px 5px; border-radius: 4px; font-size: .9em; }
 
   .legend { display: flex; flex-wrap: wrap; gap: 9px 18px; margin: 20px 0 4px; }
   .legend span { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: var(--muted); }
-  .dot { width: 11px; height: 11px; border-radius: 3px; flex: none; }
+  .dot { width: 14px; height: 4px; border-radius: 2px; flex: none; }
 
-  .board { margin-top: 22px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 10px; overflow-x: auto; }
-  svg.diagram { display: block; width: 100%; height: auto; min-width: 860px; }
+  .board { margin-top: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 10px; overflow-x: auto; }
+  svg.diagram { display: block; width: 100%; height: auto; min-width: 940px; }
 
-  /* SVG node styles */
-  .n-student { fill: var(--student-bg); stroke: var(--student); }
-  .n-teacher { fill: var(--teacher-bg); stroke: var(--teacher); }
-  .n-disc    { fill: var(--disc-bg);    stroke: var(--disc); }
-  .n-loss    { fill: var(--loss-bg);    stroke: var(--loss); }
-  .n-neutral { fill: var(--neutral-bg); stroke: var(--neutral); }
+  .n-student rect { fill: var(--student-bg); stroke: var(--student); }
+  .n-teacher rect { fill: var(--teacher-bg); stroke: var(--teacher); }
+  .n-disc rect    { fill: var(--disc-bg);    stroke: var(--disc); }
+  .n-loss rect    { fill: var(--loss-bg);    stroke: var(--loss); }
+  .n-neutral rect { fill: var(--neutral-bg); stroke: var(--neutral); }
   .node rect { stroke-width: 1.6; }
-  .node rect.branch { stroke-width: 2.2; stroke-dasharray: 6 3.5; }
-  .nt { fill: var(--ink); font: 600 12.5px var(--font-sans); }
-  .ns { fill: var(--muted); font: 11px var(--font-mono); }
-  .band { fill: var(--muted); font: 700 11px var(--font-mono); letter-spacing: .12em; opacity: .8; }
-  .elab { fill: var(--muted); font: 10.5px var(--font-mono); }
+  .node rect.branch { stroke-dasharray: 6 3.5; stroke-width: 2.2; }
+  .nt { fill: var(--ink); font: 600 12px var(--font-sans); }
+  .ns { fill: var(--muted); font: 10.5px var(--font-mono); }
+  .band { fill: var(--muted); font: 700 11px var(--font-mono); letter-spacing: .14em; opacity: .75; }
+  .elab { fill: var(--muted); font: 10px var(--font-mono); }
 
-  .e { fill: none; stroke-width: 1.6; opacity: .8; }
+  .e { fill: none; stroke-width: 1.7; }
   .e-s { stroke: var(--student); }
   .e-t { stroke: var(--teacher); }
   .e-n { stroke: var(--neutral); }
-  .e-d { stroke: var(--disc); }
-  .e-l { stroke: var(--loss); stroke-width: 2; opacity: .9; }
-  .e-faint { opacity: .5; }
+  .e-l { stroke: var(--loss); stroke-width: 2; }
 
   .note { font-size: 13.5px; color: var(--muted); margin: 16px 2px 0; }
   .note strong { color: var(--ink); font-weight: 600; }
@@ -79,196 +74,346 @@
   .chip { font-size: 12.5px; border-radius: 8px; padding: 7px 11px; background: var(--surface-2); border: 1px solid var(--border); }
   .chip b { font-family: var(--font-mono); font-weight: 700; }
   .chip.a b { color: var(--muted); } .chip.b b { color: var(--teacher); } .chip.c b { color: var(--student); }
+
+  /* formulas section */
+  .sec-head { display: flex; align-items: baseline; gap: 12px; margin: 44px 0 14px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+  .sec-head h2 { font-size: 18px; margin: 0; letter-spacing: -.01em; }
+  .sec-head .num { font-family: var(--font-mono); font-size: 13px; color: var(--muted); font-weight: 600; }
+
+  .fcard { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-top: 12px; }
+  .fcard .flabel { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+  .fcard .flabel .fname { font-weight: 600; font-size: 14px; }
+  .fcard .flabel .fref { font-family: var(--font-mono); font-size: 11px; color: var(--muted); margin-left: auto; }
+  .math { font-family: "Cambria Math", Georgia, "Times New Roman", serif; font-size: 17px; line-height: 1.7; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; overflow-x: auto; }
+  .math .var { font-style: italic; }
+  .math sub, .math sup { font-size: .7em; }
+  .op-c { color: var(--student); font-style: normal; font-weight: 600; }
+  .op-t { color: var(--teacher); font-style: normal; font-weight: 600; }
+  .op-l { color: var(--loss); font-style: normal; font-weight: 600; }
+  .op-d { color: var(--disc); font-style: normal; font-weight: 600; }
+  .coef { color: var(--muted); font-family: var(--font-mono); font-size: .82em; font-style: normal; }
+  .frac { display: inline-flex; flex-direction: column; text-align: center; vertical-align: middle; font-size: .8em; margin: 0 2px; }
+  .frac .top { border-bottom: 1.5px solid currentColor; padding: 0 5px; }
+  .frac .bot { padding: 0 5px; }
+  .fcard .fnote { font-size: 12.5px; color: var(--muted); margin: 10px 0 0; }
+  .fcard.boxed { border-color: var(--loss); border-width: 1.6px; }
+
+  .notation { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .notation th, .notation td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .notation th { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+  .notation code { font-family: var(--font-mono); font-size: 11.5px; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+  .notation .sym { font-family: "Cambria Math", Georgia, serif; font-style: italic; font-size: 14px; white-space: nowrap; }
+  .scrollx { overflow-x: auto; }
+
+  .diffs { margin-top: 14px; padding-left: 0; list-style: none; counter-reset: d; }
+  .diffs li { position: relative; padding: 10px 12px 10px 40px; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+  .diffs li::before { counter-increment: d; content: counter(d); position: absolute; left: 10px; top: 10px; width: 20px; height: 20px; border-radius: 6px; background: var(--loss-bg); color: var(--loss); font-family: var(--font-mono); font-size: 11px; font-weight: 700; display: grid; place-items: center; }
+  .diffs li strong { color: var(--ink); font-weight: 600; }
+  .diffs code { font-family: var(--font-mono); font-size: .88em; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+
+  /* comparison table */
+  .cmp { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; min-width: 720px; }
+  .cmp th { text-align: left; padding: 9px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); border-bottom: 2px solid var(--border); }
+  .cmp th.h-paper { color: var(--neutral); }
+  .cmp th.h-code { color: var(--loss); }
+  .cmp td { padding: 11px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .cmp td.c-name { font-weight: 600; white-space: nowrap; font-size: 12.5px; }
+  .cmp td.c-paper { color: var(--muted); border-left: 3px solid var(--neutral); background: var(--neutral-bg); }
+  .cmp td.c-code { border-left: 3px solid var(--loss); background: var(--loss-bg); }
+  .cmp .m { font-family: "Cambria Math", Georgia, "Times New Roman", serif; font-size: 14.5px; line-height: 1.55; font-style: italic; display: block; }
+  .cmp .m sub, .cmp .m sup { font-size: .72em; font-style: normal; }
+  .cmp .m b { font-style: normal; }
+  .cmp .co { color: var(--muted); font-family: var(--font-mono); font-size: .82em; font-style: normal; }
+  .cmp .none { font-style: italic; color: var(--muted); font-family: var(--font-sans); }
+  .cmp .why { display: block; margin-top: 5px; font-size: 11.5px; color: var(--muted); font-style: normal; font-family: var(--font-sans); }
+  .cmp .eq { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); }
 </style>
 
 <div class="wrap">
   <p class="eyebrow">Cross-Architecture Knowledge Distillation</p>
   <h1>CAKD — Luồng dữ liệu đi qua các block</h1>
-  <p class="lede">Một ảnh vào cả hai model. <strong>Student ResNet-50</strong> (trái) và <strong>Teacher ViT-B/16</strong> (phải) chạy song song; 4 đầu ra mỗi bên hội tụ về các <strong>loss</strong> ở giữa, có <strong>Discriminator</strong> (GAN) hỗ trợ. Chữ trong ngoặc là shape tensor, <code>B</code> = batch.</p>
+  <p class="lede">Một ảnh vào cả hai model. <strong>Student ResNet-50</strong> (trái) và <strong>Teacher ViT-B/16</strong> (phải) chạy song song; 4 đầu ra mỗi bên căn theo hàng và hội tụ về các <strong>loss</strong> ở giữa, rồi cộng thành loss tổng. Chữ trong ngoặc = shape tensor, <code>B</code> = batch.</p>
   <div class="legend">
-    <span><i class="dot" style="background:var(--student)"></i> Student (học)</span>
-    <span><i class="dot" style="background:var(--teacher)"></i> Teacher (đóng băng)</span>
-    <span><i class="dot" style="background:var(--disc)"></i> Discriminator</span>
-    <span><i class="dot" style="background:var(--loss)"></i> Loss</span>
+    <span><i class="dot" style="background:var(--student)"></i> luồng Student</span>
+    <span><i class="dot" style="background:var(--teacher)"></i> luồng Teacher</span>
+    <span><i class="dot" style="background:var(--neutral)"></i> đầu vào phụ</span>
+    <span><i class="dot" style="background:var(--loss)"></i> gộp loss</span>
   </div>
 
   <div class="board">
-    <svg class="diagram" viewBox="0 0 1000 950" role="img" aria-label="Sơ đồ luồng huấn luyện CAKD">
+    <svg class="diagram" viewBox="0 0 1180 900" role="img" aria-label="Sơ đồ luồng huấn luyện CAKD">
       <defs>
-        <marker id="aS" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--student)"/></marker>
-        <marker id="aT" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--teacher)"/></marker>
-        <marker id="aN" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--neutral)"/></marker>
-        <marker id="aD" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--disc)"/></marker>
-        <marker id="aL" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--loss)"/></marker>
+        <marker id="aS" markerWidth="8" markerHeight="8" refX="6.5" refY="3" orient="auto"><path d="M0,0 L6.5,3 L0,6 Z" fill="var(--student)"/></marker>
+        <marker id="aT" markerWidth="8" markerHeight="8" refX="6.5" refY="3" orient="auto"><path d="M0,0 L6.5,3 L0,6 Z" fill="var(--teacher)"/></marker>
+        <marker id="aN" markerWidth="8" markerHeight="8" refX="6.5" refY="3" orient="auto"><path d="M0,0 L6.5,3 L0,6 Z" fill="var(--neutral)"/></marker>
+        <marker id="aL" markerWidth="8" markerHeight="8" refX="6.5" refY="3" orient="auto"><path d="M0,0 L6.5,3 L0,6 Z" fill="var(--loss)"/></marker>
       </defs>
 
-      <!-- band labels -->
-      <text class="band" x="175" y="88" text-anchor="middle">STUDENT · ResNet-50</text>
-      <text class="band" x="825" y="88" text-anchor="middle">TEACHER · ViT-B/16</text>
-      <text class="band" x="500" y="545" text-anchor="middle">LOSS</text>
+      <text class="band" x="95"  y="86" text-anchor="middle">STUDENT · ResNet-50</text>
+      <text class="band" x="1085" y="86" text-anchor="middle">TEACHER · ViT-B/16</text>
+      <text class="band" x="610" y="500" text-anchor="middle">LOSS</text>
 
-      <!-- ===== EDGES (drawn first) ===== -->
+      <!-- ============ EDGES ============ -->
       <!-- image split -->
-      <path class="e e-n" d="M455,48 C300,52 200,70 190,100" marker-end="url(#aN)"/>
-      <path class="e e-n" d="M545,48 C700,52 800,70 810,100" marker-end="url(#aN)"/>
-      <!-- student chain -->
-      <path class="e e-s" d="M175,142 L175,158" marker-end="url(#aS)"/>
-      <path class="e e-s" d="M175,200 L175,216" marker-end="url(#aS)"/>
-      <path class="e e-s" d="M175,258 L175,274" marker-end="url(#aS)"/>
-      <path class="e e-s" d="M175,316 L175,332" marker-end="url(#aS)"/>
-      <path class="e e-s" d="M175,378 L175,440" marker-end="url(#aS)"/>
-      <path class="e e-s" d="M175,482 L175,498" marker-end="url(#aS)"/>
-      <!-- layer3 -> distill projections -->
-      <path class="e e-s" d="M275,350 C300,348 300,448 300,448" marker-end="url(#aS)"/>
-      <path class="e e-s" d="M275,368 C295,420 300,506 300,506" marker-end="url(#aS)"/>
-      <!-- projections -> chips -->
-      <path class="e e-s" d="M387,468 C360,530 345,565 332,596" marker-end="url(#aS)"/>
-      <path class="e e-s" d="M387,526 C360,585 348,620 332,644" marker-end="url(#aS)"/>
-      <!-- cnn_token -> logits / cls_token -->
-      <path class="e e-s" d="M175,540 C175,650 205,711 235,711" marker-end="url(#aS)"/>
-      <path class="e e-s" d="M175,540 C175,705 205,759 235,759" marker-end="url(#aS)"/>
-      <text class="elab" x="150" y="620">fc</text>
-      <text class="elab" x="120" y="700">cls_proj</text>
-      <!-- teacher chain -->
-      <path class="e e-t" d="M825,142 L825,158" marker-end="url(#aT)"/>
-      <path class="e e-t" d="M825,200 L825,216" marker-end="url(#aT)"/>
-      <!-- encoder -> teacher chips -->
-      <path class="e e-t" d="M825,308 C782,420 720,560 768,600" marker-end="url(#aT)"/>
-      <path class="e e-t" d="M825,308 C802,470 742,620 765,648" marker-end="url(#aT)"/>
-      <path class="e e-t" d="M825,308 C818,520 762,680 765,696" marker-end="url(#aT)"/>
-      <path class="e e-t" d="M825,308 C828,560 782,730 765,744" marker-end="url(#aT)"/>
+      <path class="e e-n" d="M545,62 C360,82 170,88 95,98" marker-end="url(#aN)"/>
+      <path class="e e-n" d="M635,62 C820,82 1010,88 1085,98" marker-end="url(#aN)"/>
 
-      <!-- student outputs -> losses -->
-      <path class="e e-s" d="M405,615 C416,660 420,700 425,714" marker-end="url(#aS)"/>          <!-- attn -> pca -->
-      <path class="e e-s" d="M405,615 C412,635 413,655 415,663" marker-end="url(#aS)"/>          <!-- attn -> D -->
-      <path class="e e-s" d="M405,711 C416,672 420,640 425,625" marker-end="url(#aS)"/>          <!-- logits -> cls -->
-      <path class="e e-s e-faint" d="M405,711 C416,742 420,762 425,769" marker-end="url(#aS)"/>  <!-- logits -> gl -->
-      <path class="e e-s e-faint" d="M405,663 C416,715 419,760 425,770" marker-end="url(#aS)"/>  <!-- vitfeat -> gl -->
-      <path class="e e-s e-faint" d="M405,759 C414,765 420,769 425,772" marker-end="url(#aS)"/>  <!-- clstok -> gl -->
-      <!-- target -> cls -->
-      <path class="e e-n" d="M500,586 L500,596" marker-end="url(#aN)"/>
-      <!-- teacher outputs -> losses -->
-      <path class="e e-t" d="M595,615 C584,660 580,700 575,714" marker-end="url(#aT)"/>          <!-- tattn -> pca -->
-      <path class="e e-t" d="M595,615 C588,635 587,655 585,663" marker-end="url(#aT)"/>          <!-- tattn -> D -->
-      <path class="e e-t e-faint" d="M595,711 C584,742 580,762 575,769" marker-end="url(#aT)"/>  <!-- tlogits -> gl -->
-      <path class="e e-t e-faint" d="M595,663 C584,715 581,760 575,770" marker-end="url(#aT)"/>  <!-- tfeat -> gl -->
-      <path class="e e-t e-faint" d="M595,759 C586,765 580,769 575,772" marker-end="url(#aT)"/>  <!-- ttok -> gl -->
+      <!-- student tower internal -->
+      <path class="e e-s" d="M95,136 V148"  marker-end="url(#aS)"/>
+      <path class="e e-s" d="M95,184 V196"  marker-end="url(#aS)"/>
+      <path class="e e-s" d="M95,232 V244"  marker-end="url(#aS)"/>
+      <path class="e e-s" d="M95,280 V292"  marker-end="url(#aS)"/>
+      <path class="e e-s" d="M95,332 V360"  marker-end="url(#aS)"/>
+      <path class="e e-s" d="M95,396 V408"  marker-end="url(#aS)"/>
+      <!-- tower -> chips (orthogonal lanes) -->
+      <path class="e e-s" d="M180,306 H200 V555 H250" marker-end="url(#aS)"/>
+      <path class="e e-s" d="M180,320 H218 V609 H250" marker-end="url(#aS)"/>
+      <path class="e e-s" d="M180,420 H232 V663 H250" marker-end="url(#aS)"/>
+      <path class="e e-s" d="M180,434 H246 V717 H250" marker-end="url(#aS)"/>
+      <text class="elab" x="205" y="470">pca_proj</text>
+      <text class="elab" x="205" y="530">gl_proj</text>
+      <text class="elab" x="252" y="645">cls_proj</text>
+      <text class="elab" x="252" y="700">fc</text>
 
-      <!-- losses -> total -->
-      <path class="e e-l" d="M500,638 C500,715 500,775 500,820" marker-end="url(#aL)"/>
-      <path class="e e-l" d="M500,690 C520,740 512,790 505,820" marker-end="url(#aL)"/>
-      <path class="e e-l" d="M500,742 L500,820" marker-end="url(#aL)"/>
-      <path class="e e-l" d="M500,794 L500,820" marker-end="url(#aL)"/>
+      <!-- teacher tower internal -->
+      <path class="e e-t" d="M1085,136 V148" marker-end="url(#aT)"/>
+      <path class="e e-t" d="M1085,184 V196" marker-end="url(#aT)"/>
+      <!-- encoder -> chips -->
+      <path class="e e-t" d="M1000,224 H980 V555 H930" marker-end="url(#aT)"/>
+      <path class="e e-t" d="M1000,240 H962 V609 H930" marker-end="url(#aT)"/>
+      <path class="e e-t" d="M1000,256 H948 V663 H930" marker-end="url(#aT)"/>
+      <path class="e e-t" d="M1000,272 H934 V717 H930" marker-end="url(#aT)"/>
 
-      <!-- ===== NODES ===== -->
+      <!-- student chips -> losses -->
+      <path class="e e-s" d="M430,550 C475,547 500,544 530,543" marker-end="url(#aS)"/>
+      <path class="e e-s" d="M430,562 C472,576 498,590 520,596" marker-end="url(#aS)"/>
+      <path class="e e-s" d="M430,609 C472,628 500,652 530,662" marker-end="url(#aS)"/>
+      <path class="e e-s" d="M430,663 C472,664 500,665 530,666" marker-end="url(#aS)"/>
+      <path class="e e-s" d="M430,712 C472,700 500,680 530,671" marker-end="url(#aS)"/>
+      <path class="e e-s" d="M430,720 C472,730 500,738 530,740" marker-end="url(#aS)"/>
+      <path class="e e-n" d="M400,764 C455,756 495,748 530,744" marker-end="url(#aN)"/>
+
+      <!-- teacher chips -> losses -->
+      <path class="e e-t" d="M750,550 C705,547 700,544 690,543" marker-end="url(#aT)"/>
+      <path class="e e-t" d="M750,562 C708,576 702,590 700,596" marker-end="url(#aT)"/>
+      <path class="e e-t" d="M750,609 C708,628 692,652 690,662" marker-end="url(#aT)"/>
+      <path class="e e-t" d="M750,663 C708,664 694,665 690,666" marker-end="url(#aT)"/>
+      <path class="e e-t" d="M750,712 C708,700 694,680 690,671" marker-end="url(#aT)"/>
+
+      <!-- losses -> total (right spine, offset from teacher inputs) -->
+      <path class="e e-l" d="M690,556 H712 V812" marker-end="url(#aL)"/>
+      <path class="e e-l" d="M700,610 H712" />
+      <path class="e e-l" d="M690,682 H712" />
+      <path class="e e-l" d="M690,748 H712" />
+
+      <!-- ============ NODES ============ -->
       <!-- image -->
-      <g class="node"><rect class="n-neutral" x="405" y="26" width="190" height="44" rx="9"/>
-        <text class="nt" x="500" y="46" text-anchor="middle">INPUT · ảnh</text>
-        <text class="ns" x="500" y="61" text-anchor="middle">(B, 3, 224, 224)</text></g>
+      <g class="node n-neutral"><rect x="495" y="24" width="190" height="40" rx="9"/>
+        <text class="nt" x="590" y="43" text-anchor="middle">INPUT · ảnh</text>
+        <text class="ns" x="590" y="58" text-anchor="middle">(B, 3, 224, 224)</text></g>
 
-      <!-- student blocks -->
-      <g class="node"><rect class="n-student" x="75" y="100" width="200" height="42" rx="8"/>
-        <text class="nt" x="175" y="119" text-anchor="middle">stem · conv7×7 s2</text>
-        <text class="ns" x="175" y="134" text-anchor="middle">(B, 64, 112, 112)</text></g>
-      <g class="node"><rect class="n-student" x="75" y="158" width="200" height="42" rx="8"/>
-        <text class="nt" x="175" y="177" text-anchor="middle">maxpool</text>
-        <text class="ns" x="175" y="192" text-anchor="middle">(B, 64, 56, 56)</text></g>
-      <g class="node"><rect class="n-student" x="75" y="216" width="200" height="42" rx="8"/>
-        <text class="nt" x="175" y="235" text-anchor="middle">layer1 · 3 block</text>
-        <text class="ns" x="175" y="250" text-anchor="middle">(B, 256, 56, 56)</text></g>
-      <g class="node"><rect class="n-student" x="75" y="274" width="200" height="42" rx="8"/>
-        <text class="nt" x="175" y="293" text-anchor="middle">layer2 · 4 block s2</text>
-        <text class="ns" x="175" y="308" text-anchor="middle">(B, 512, 28, 28)</text></g>
-      <g class="node"><rect class="n-student branch" x="75" y="332" width="200" height="46" rx="8"/>
-        <text class="nt" x="175" y="353" text-anchor="middle">layer3 → x_3 · rẽ nhánh</text>
-        <text class="ns" x="175" y="368" text-anchor="middle">(B, 1024, 14, 14)</text></g>
-      <g class="node"><rect class="n-student" x="75" y="440" width="200" height="42" rx="8"/>
-        <text class="nt" x="175" y="459" text-anchor="middle">layer4 · 3 block s2</text>
-        <text class="ns" x="175" y="474" text-anchor="middle">(B, 2048, 7, 7)</text></g>
-      <g class="node"><rect class="n-student" x="75" y="498" width="200" height="42" rx="8"/>
-        <text class="nt" x="175" y="517" text-anchor="middle">avgpool → cnn_token</text>
-        <text class="ns" x="175" y="532" text-anchor="middle">(B, 2048)</text></g>
+      <!-- student tower -->
+      <g class="node n-student"><rect x="20" y="100" width="150" height="36" rx="8"/>
+        <text class="nt" x="95" y="116" text-anchor="middle">stem · conv7×7 s2</text>
+        <text class="ns" x="95" y="130" text-anchor="middle">(B,64,112,112)</text></g>
+      <g class="node n-student"><rect x="20" y="148" width="150" height="36" rx="8"/>
+        <text class="nt" x="95" y="164" text-anchor="middle">maxpool</text>
+        <text class="ns" x="95" y="178" text-anchor="middle">(B,64,56,56)</text></g>
+      <g class="node n-student"><rect x="20" y="196" width="150" height="36" rx="8"/>
+        <text class="nt" x="95" y="212" text-anchor="middle">layer1 · 3 block</text>
+        <text class="ns" x="95" y="226" text-anchor="middle">(B,256,56,56)</text></g>
+      <g class="node n-student"><rect x="20" y="244" width="150" height="36" rx="8"/>
+        <text class="nt" x="95" y="260" text-anchor="middle">layer2 · s2</text>
+        <text class="ns" x="95" y="274" text-anchor="middle">(B,512,28,28)</text></g>
+      <g class="node n-student"><rect class="branch" x="20" y="292" width="150" height="40" rx="8"/>
+        <text class="nt" x="95" y="310" text-anchor="middle">layer3 → x_3</text>
+        <text class="ns" x="95" y="324" text-anchor="middle">(B,1024,14,14)</text></g>
+      <g class="node n-student"><rect x="20" y="360" width="150" height="36" rx="8"/>
+        <text class="nt" x="95" y="376" text-anchor="middle">layer4 · s2</text>
+        <text class="ns" x="95" y="390" text-anchor="middle">(B,2048,7,7)</text></g>
+      <g class="node n-student"><rect x="20" y="408" width="150" height="36" rx="8"/>
+        <text class="nt" x="95" y="424" text-anchor="middle">avgpool → cnn_token</text>
+        <text class="ns" x="95" y="438" text-anchor="middle">(B, 2048)</text></g>
 
-      <!-- distill projections -->
-      <g class="node"><rect class="n-student" x="300" y="428" width="175" height="40" rx="8"/>
-        <text class="nt" x="387" y="446" text-anchor="middle">pca_proj · Attention</text>
-        <text class="ns" x="387" y="460" text-anchor="middle">16 heads</text></g>
-      <g class="node"><rect class="n-student" x="300" y="486" width="175" height="40" rx="8"/>
-        <text class="nt" x="387" y="504" text-anchor="middle">gl_proj · GLProj</text>
-        <text class="ns" x="387" y="518" text-anchor="middle">1024 → 768</text></g>
+      <!-- student chips -->
+      <g class="node n-student"><rect x="250" y="536" width="180" height="38" rx="8"/>
+        <text class="nt" x="340" y="553" text-anchor="middle">attn_qk / attn_vv</text>
+        <text class="ns" x="340" y="567" text-anchor="middle">(B, 196, 196)</text></g>
+      <g class="node n-student"><rect x="250" y="590" width="180" height="38" rx="8"/>
+        <text class="nt" x="340" y="607" text-anchor="middle">vit_feat</text>
+        <text class="ns" x="340" y="621" text-anchor="middle">(B, 196, 768)</text></g>
+      <g class="node n-student"><rect x="250" y="644" width="180" height="38" rx="8"/>
+        <text class="nt" x="340" y="661" text-anchor="middle">cls_token</text>
+        <text class="ns" x="340" y="675" text-anchor="middle">(B, 768)</text></g>
+      <g class="node n-student"><rect x="250" y="698" width="180" height="38" rx="8"/>
+        <text class="nt" x="340" y="715" text-anchor="middle">logits</text>
+        <text class="ns" x="340" y="729" text-anchor="middle">(B, 1000)</text></g>
+      <g class="node n-neutral"><rect x="280" y="750" width="120" height="30" rx="7"/>
+        <text class="nt" x="340" y="769" text-anchor="middle">target · nhãn thật</text></g>
 
-      <!-- student output chips -->
-      <g class="node"><rect class="n-student" x="235" y="596" width="170" height="38" rx="8"/>
-        <text class="nt" x="320" y="613" text-anchor="middle">attn_qk / attn_vv</text>
-        <text class="ns" x="320" y="627" text-anchor="middle">(B, 196, 196)</text></g>
-      <g class="node"><rect class="n-student" x="235" y="644" width="170" height="38" rx="8"/>
-        <text class="nt" x="320" y="661" text-anchor="middle">vit_feat</text>
-        <text class="ns" x="320" y="675" text-anchor="middle">(B, 196, 768)</text></g>
-      <g class="node"><rect class="n-student" x="235" y="692" width="170" height="38" rx="8"/>
-        <text class="nt" x="320" y="709" text-anchor="middle">logits</text>
-        <text class="ns" x="320" y="723" text-anchor="middle">(B, 1000)</text></g>
-      <g class="node"><rect class="n-student" x="235" y="740" width="170" height="38" rx="8"/>
-        <text class="nt" x="320" y="757" text-anchor="middle">cls_token</text>
-        <text class="ns" x="320" y="771" text-anchor="middle">(B, 768)</text></g>
+      <!-- teacher tower -->
+      <g class="node n-teacher"><rect x="1010" y="100" width="150" height="36" rx="8"/>
+        <text class="nt" x="1085" y="116" text-anchor="middle">patch embed 16×16</text>
+        <text class="ns" x="1085" y="130" text-anchor="middle">(B,196,768)</text></g>
+      <g class="node n-teacher"><rect x="1010" y="148" width="150" height="36" rx="8"/>
+        <text class="nt" x="1085" y="164" text-anchor="middle">+ [CLS]</text>
+        <text class="ns" x="1085" y="178" text-anchor="middle">(B,197,768)</text></g>
+      <g class="node n-teacher"><rect x="1010" y="196" width="150" height="84" rx="8"/>
+        <text class="nt" x="1085" y="234" text-anchor="middle">Encoder × 12</text>
+        <text class="ns" x="1085" y="250" text-anchor="middle">+ pos · attention</text>
+        <text class="ns" x="1085" y="265" text-anchor="middle">(B,197,768)</text></g>
 
-      <!-- teacher blocks -->
-      <g class="node"><rect class="n-teacher" x="725" y="100" width="200" height="42" rx="8"/>
-        <text class="nt" x="825" y="119" text-anchor="middle">patch embed · 16×16</text>
-        <text class="ns" x="825" y="134" text-anchor="middle">(B, 196, 768)</text></g>
-      <g class="node"><rect class="n-teacher" x="725" y="158" width="200" height="42" rx="8"/>
-        <text class="nt" x="825" y="177" text-anchor="middle">+ [CLS] token</text>
-        <text class="ns" x="825" y="192" text-anchor="middle">(B, 197, 768)</text></g>
-      <g class="node"><rect class="n-teacher" x="725" y="216" width="200" height="92" rx="8"/>
-        <text class="nt" x="825" y="256" text-anchor="middle">Encoder × 12 lớp</text>
-        <text class="ns" x="825" y="272" text-anchor="middle">+ pos · attention</text>
-        <text class="ns" x="825" y="288" text-anchor="middle">(B, 197, 768)</text></g>
-
-      <!-- teacher output chips -->
-      <g class="node"><rect class="n-teacher" x="595" y="596" width="170" height="38" rx="8"/>
-        <text class="nt" x="680" y="613" text-anchor="middle">tea_attn</text>
-        <text class="ns" x="680" y="627" text-anchor="middle">(B,197,197)→196</text></g>
-      <g class="node"><rect class="n-teacher" x="595" y="644" width="170" height="38" rx="8"/>
-        <text class="nt" x="680" y="661" text-anchor="middle">tea_feat</text>
-        <text class="ns" x="680" y="675" text-anchor="middle">(B, 196, 768)</text></g>
-      <g class="node"><rect class="n-teacher" x="595" y="692" width="170" height="38" rx="8"/>
-        <text class="nt" x="680" y="709" text-anchor="middle">tea_logits</text>
-        <text class="ns" x="680" y="723" text-anchor="middle">(B, 1000)</text></g>
-      <g class="node"><rect class="n-teacher" x="595" y="740" width="170" height="38" rx="8"/>
-        <text class="nt" x="680" y="757" text-anchor="middle">tea_token</text>
-        <text class="ns" x="680" y="771" text-anchor="middle">(B, 768)</text></g>
-
-      <!-- target -->
-      <g class="node"><rect class="n-neutral" x="435" y="556" width="130" height="30" rx="7"/>
-        <text class="nt" x="500" y="576" text-anchor="middle">target · nhãn thật</text></g>
+      <!-- teacher chips -->
+      <g class="node n-teacher"><rect x="750" y="536" width="180" height="38" rx="8"/>
+        <text class="nt" x="840" y="553" text-anchor="middle">tea_attn</text>
+        <text class="ns" x="840" y="567" text-anchor="middle">(B,197,197)→196</text></g>
+      <g class="node n-teacher"><rect x="750" y="590" width="180" height="38" rx="8"/>
+        <text class="nt" x="840" y="607" text-anchor="middle">tea_feat</text>
+        <text class="ns" x="840" y="621" text-anchor="middle">(B, 196, 768)</text></g>
+      <g class="node n-teacher"><rect x="750" y="644" width="180" height="38" rx="8"/>
+        <text class="nt" x="840" y="661" text-anchor="middle">tea_token</text>
+        <text class="ns" x="840" y="675" text-anchor="middle">(B, 768)</text></g>
+      <g class="node n-teacher"><rect x="750" y="698" width="180" height="38" rx="8"/>
+        <text class="nt" x="840" y="715" text-anchor="middle">tea_logits</text>
+        <text class="ns" x="840" y="729" text-anchor="middle">(B, 1000)</text></g>
 
       <!-- loss nodes -->
-      <g class="node"><rect class="n-loss" x="425" y="596" width="150" height="42" rx="8"/>
-        <text class="nt" x="500" y="614" text-anchor="middle">cls_loss</text>
-        <text class="ns" x="500" y="629" text-anchor="middle">CrossEntropy</text></g>
-      <g class="node"><rect class="n-disc" x="415" y="648" width="170" height="42" rx="8"/>
-        <text class="nt" x="500" y="666" text-anchor="middle">Discriminator</text>
-        <text class="ns" x="500" y="681" text-anchor="middle">→ gan_loss</text></g>
-      <g class="node"><rect class="n-loss" x="425" y="700" width="150" height="42" rx="8"/>
-        <text class="nt" x="500" y="718" text-anchor="middle">pca_loss</text>
-        <text class="ns" x="500" y="733" text-anchor="middle">0.2·MSE + 0.05·MSE</text></g>
-      <g class="node"><rect class="n-loss" x="425" y="752" width="150" height="42" rx="8"/>
-        <text class="nt" x="500" y="770" text-anchor="middle">gl_loss</text>
-        <text class="ns" x="500" y="785" text-anchor="middle">MSE · MSE · MSE</text></g>
+      <g class="node n-loss"><rect x="530" y="524" width="160" height="38" rx="8"/>
+        <text class="nt" x="610" y="541" text-anchor="middle">pca_loss</text>
+        <text class="ns" x="610" y="555" text-anchor="middle">0.2·MSE + 0.05·MSE</text></g>
+      <g class="node n-disc"><rect x="520" y="578" width="180" height="38" rx="8"/>
+        <text class="nt" x="610" y="595" text-anchor="middle">Discriminator (GAN)</text>
+        <text class="ns" x="610" y="609" text-anchor="middle">→ gan_loss</text></g>
+      <g class="node n-loss"><rect x="530" y="644" width="160" height="44" rx="8"/>
+        <text class="nt" x="610" y="663" text-anchor="middle">gl_loss</text>
+        <text class="ns" x="610" y="678" text-anchor="middle">MSE · MSE · MSE</text></g>
+      <g class="node n-loss"><rect x="530" y="722" width="160" height="38" rx="8"/>
+        <text class="nt" x="610" y="739" text-anchor="middle">cls_loss</text>
+        <text class="ns" x="610" y="753" text-anchor="middle">CrossEntropy</text></g>
 
       <!-- total loss -->
-      <g class="node"><rect class="n-loss" x="250" y="820" width="500" height="66" rx="10"/>
-        <text class="nt" x="500" y="843" text-anchor="middle" style="font-size:13.5px">loss = cls_loss + λ(epoch) · ( pca_loss + gl_loss + GAN )</text>
-        <text class="ns" x="500" y="863" text-anchor="middle">λ(epoch) = min( max(epoch − 25, 0) / 50 , 0.2 )</text>
-        <text class="ns" x="500" y="878" text-anchor="middle" style="fill:var(--muted)">→ optimizer cập nhật Student · teacher đóng băng</text></g>
+      <g class="node n-loss"><rect x="300" y="812" width="580" height="62" rx="10"/>
+        <text class="nt" x="590" y="834" text-anchor="middle" style="font-size:13px">loss = cls_loss + λ(epoch) · ( pca_loss + gl_loss + gan )</text>
+        <text class="ns" x="590" y="852" text-anchor="middle">λ(epoch) = min( max(epoch − 25, 0) / 50 , 0.2 )</text>
+        <text class="ns" x="590" y="867" text-anchor="middle" style="fill:var(--muted)">optimizer cập nhật Student · teacher đóng băng</text></g>
     </svg>
   </div>
 
-  <p class="note"><strong>Cách đọc:</strong> mũi tên xanh lá = luồng Student, cam = Teacher, tím = Discriminator, đỏ = gộp loss. Nhánh <em>distill</em> (pca_proj / gl_proj) rẽ ra tại <code>layer3</code>; nhánh chính chạy tiếp xuống <code>layer4 → fc</code>. Mỗi loss nối student ↔ teacher tương ứng (đường mờ = các đầu vào phụ của <code>gl_loss</code>).</p>
+  <p class="note"><strong>Cách đọc:</strong> mỗi hàng căn thẳng: <em>đầu ra Student</em> (trái) → <em>loss</em> (giữa) ← <em>đầu ra Teacher</em> (phải). Nhánh <em>distill</em> (attn, vit_feat) rẽ ra tại <code>layer3</code>; nhánh chính (logits, cls_token) đi tiếp qua <code>layer4 → cnn_token</code>. Đường đỏ bên phải gộp 4 loss thành loss tổng.</p>
 
   <div class="phase-line">
     <span class="chip a">Epoch 0–25 · <b>λ = 0</b> — chỉ cls_loss (tắt distill/GAN)</span>
     <span class="chip b">Epoch 26–34 · <b>λ: 0.02→0.18</b> — bật distill tăng dần</span>
     <span class="chip c">Epoch 35–89 · <b>λ = 0.2</b> — chạm trần, chạy hết</span>
   </div>
-  <p class="note"><strong>Khi chạy thật:</strong> chỉ giữ nhánh <code>stem → layer1..4 → fc → logits</code>; bỏ toàn bộ pca_proj / gl_proj / cls_proj, Discriminator và Teacher.</p>
+  <p class="note"><strong>Khi chạy thật:</strong> chỉ giữ <code>stem → layer1..4 → fc → logits</code>; bỏ toàn bộ pca_proj / gl_proj / cls_proj, Discriminator và Teacher.</p>
+
+  <!-- ============ FORMULAS ============ -->
+  <div class="sec-head"><span class="num">§</span><h2>Công thức loss chuẩn (đúng theo code)</h2></div>
+  <p class="note" style="margin-top:0">Viết lại cho khớp <code>dist_train_cakd.py</code>, đối chiếu bài báo arXiv:2207.05273. Quy ước: <span class="math" style="display:inline-flex;font-size:14px"><span class="op-l">MSE</span>(<span class="var">a,b</span>) = <span class="frac"><span class="top">1</span><span class="bot"><span class="var">n</span></span></span>‖<span class="var">a−b</span>‖²</span> ; <span class="math" style="display:inline-flex;font-size:14px"><span class="var">ℓ</span>(<span class="var">p,c</span>) = BCEWithLogits(<span class="var">p, c</span>·<b>1</b>)</span> — <code>GANLoss</code> mặc định <b>vanilla</b> (BCE), không phải LSGAN.</p>
+
+  <!-- notation -->
+  <div class="fcard"><div class="flabel"><span class="fname">Ký hiệu</span></div>
+    <div class="scrollx"><table class="notation">
+      <tr><th>Ký hiệu</th><th>Biến trong code</th><th>Shape</th><th>Ghi chú</th></tr>
+      <tr><td class="sym">z<sub>S</sub></td><td><code>output</code></td><td>(B,1000)</td><td>logits student</td></tr>
+      <tr><td class="sym">A<sup>qk</sup><sub>S</sub></td><td><code>attn_weights[0]</code></td><td>(B,196,196)</td><td>mean<sub>h</sub> Q<sub>S</sub>K<sub>S</sub>ᵀ/√d — <b>trước softmax</b></td></tr>
+      <tr><td class="sym">A<sup>vv</sup><sub>S</sub></td><td><code>attn_weights[1]</code></td><td>(B,196,196)</td><td>mean<sub>h</sub> V<sub>S</sub>V<sub>S</sub>ᵀ/√d — <b>trước softmax</b></td></tr>
+      <tr><td class="sym">f<sub>S</sub></td><td><code>proj_feat</code></td><td>(B,196,768)</td><td>gl_proj (GLProj)</td></tr>
+      <tr><td class="sym">t<sub>S</sub></td><td><code>proj_token</code></td><td>(B,768)</td><td>cls_proj</td></tr>
+      <tr><td class="sym">z<sub>T</sub></td><td><code>tea_logits</code></td><td>(B,1000)</td><td>detach</td></tr>
+      <tr><td class="sym">Ā<sup>(1)</sup><sub>T</sub></td><td><code>tea_attn_weights[2][:,1:,1:]</code></td><td>(B,196,196)</td><td>attention teacher, <b>sau softmax</b>, detach</td></tr>
+      <tr><td class="sym">Ā<sup>(2)</sup><sub>T</sub></td><td><code>tea_attn_weights[3][:,1:,1:]</code></td><td>(B,196,196)</td><td>detach</td></tr>
+      <tr><td class="sym">f<sub>T</sub></td><td><code>tea_feat</code></td><td>(B,196,768)</td><td>detach</td></tr>
+      <tr><td class="sym">t<sub>T</sub></td><td><code>tea_token</code></td><td>(B,768)</td><td><b>không</b> detach</td></tr>
+      <tr><td class="sym">D(·)</td><td><code>discriminator</code></td><td>PatchGAN</td><td>vào: attention (B,1,196,196)</td></tr>
+    </table></div>
+  </div>
+
+  <!-- (1) cls -->
+  <div class="fcard"><div class="flabel"><span class="fname">① Phân loại</span><span class="fref">dist_train_cakd.py:87</span></div>
+    <div class="math"><span class="op-l">ℒ</span><sub class="op-l">cls</sub> = CE(<span class="op-c">z<sub>S</sub></span>, <span class="var">y</span>) <span class="coef">(label smoothing)</span></div>
+  </div>
+
+  <!-- (2) pca -->
+  <div class="fcard"><div class="flabel"><span class="fname">② PCA loss · khớp attention</span><span class="fref">dist_train_cakd.py:90</span></div>
+    <div class="math"><span class="op-l">ℒ</span><sub class="op-l">pca</sub> = <span class="coef">0.2</span>·<span class="op-l">MSE</span>(<span class="op-c">A<sup>qk</sup><sub>S</sub></span>, <span class="op-t">Ā<sup>(1)</sup><sub>T</sub></span>) <span class="op-l">+</span> <span class="coef">0.05</span>·<span class="op-l">MSE</span>(<span class="op-c">A<sup>vv</sup><sub>S</sub></span>, <span class="op-t">Ā<sup>(2)</sup><sub>T</sub></span>)</div>
+  </div>
+
+  <!-- (3) gl -->
+  <div class="fcard"><div class="flabel"><span class="fname">③ GL loss · logits + token + feature</span><span class="fref">dist_train_cakd.py:92</span></div>
+    <div class="math"><span class="op-l">ℒ</span><sub class="op-l">gl</sub> = <span class="op-l">MSE</span>(<span class="op-c">z<sub>S</sub></span>, <span class="op-t">z<sub>T</sub></span>) <span class="op-l">+</span> <span class="op-l">MSE</span>(<span class="op-c">t<sub>S</sub></span>, <span class="op-t">t<sub>T</sub></span>) <span class="op-l">+</span> <span class="coef">0.05</span>·<span class="op-l">MSE</span>(<span class="op-c">f<sub>S</sub></span>, <span class="op-t">f<sub>T</sub></span>)</div>
+    <p class="fnote">Hệ số: logits 1 · class token 1 · feature 0.05. Logit khớp bằng <b>MSE</b> (không phải KL).</p>
+  </div>
+
+  <!-- (4) D -->
+  <div class="fcard"><div class="flabel"><span class="fname">④ Loss Discriminator (cập nhật D)</span><span class="fref">dist_train_cakd.py:95</span></div>
+    <div class="math"><span class="op-d">ℒ</span><sub class="op-d">D</sub> = <span class="frac"><span class="top">1</span><span class="bot">2</span></span>[ <span class="var">ℓ</span>(<span class="op-d">D</span>(<span class="op-t">Ā<sup>(1)</sup><sub>T</sub></span>), <span class="coef">1</span>) <span class="op-d">+</span> <span class="var">ℓ</span>(<span class="op-d">D</span>(<span class="op-c">A<sup>qk</sup><sub>S</sub></span>), <span class="coef">0</span>) ]</div>
+    <p class="fnote">Cả hai đầu vào <code>.detach()</code> → chỉ cập nhật trọng số D. lr<sub>D</sub> = 0.01 × lr.</p>
+  </div>
+
+  <!-- (5) total -->
+  <div class="fcard boxed"><div class="flabel"><span class="fname">⑤ Loss tổng của Student</span><span class="fref">dist_train_cakd.py:102</span></div>
+    <div class="math"><span class="op-l">ℒ</span> = <span class="op-l">ℒ</span><sub class="op-l">cls</sub> <span class="op-l">+</span> <span class="op-t">λ(e)</span>·( <span class="op-l">ℒ</span><sub class="op-l">pca</sub> <span class="op-l">+</span> <span class="op-l">ℒ</span><sub class="op-l">gl</sub> <span class="op-l">+</span> <span class="coef">0.05</span>·<span class="var">ℓ</span>(<span class="op-d">D</span>(<span class="op-t">Ā<sup>(1)</sup><sub>T</sub></span>)<sup>det</sup>, <span class="coef">1</span>) <span class="op-l">+</span> <span class="var">ℓ</span>(<span class="op-d">D</span>(<span class="op-c">A<sup>qk</sup><sub>S</sub></span>), <span class="coef">1</span>) )</div>
+    <div class="math" style="margin-top:8px"><span class="op-t">λ(e)</span> = min( <span class="frac"><span class="top">max(<span class="var">e</span>−25, 0)</span><span class="bot">50</span></span>, <span class="coef">0.2</span> )</div>
+    <p class="fnote">Số hạng <span style="white-space:nowrap"><span class="coef">0.05</span>·ℓ(D(Ā<sup>(1)</sup><sub>T</sub>)<sup>det</sup>,1)</span> có <code>pred_real</code> đã detach ⇒ <b>gradient = 0</b>, không dạy student. Chỉ ℓ(D(A<sup>qk</sup><sub>S</sub>),1) — student ép D tưởng attention của mình là THẬT — mới tác động lên student.</p>
+  </div>
+
+  <!-- side-by-side comparison -->
+  <div class="sec-head" style="margin-top:34px"><span class="num">↔</span><h2>So sánh trực tiếp: công thức bài báo ↔ code</h2></div>
+  <div class="fcard" style="padding:6px 6px 4px">
+    <div class="scrollx"><table class="cmp">
+      <thead><tr><th>Thành phần</th><th class="h-paper">Bài báo (arXiv:2207.05273)</th><th class="h-code">Code (thực tế)</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="c-name">Loss tổng</td>
+          <td class="c-paper"><span class="m">ℒ<sub>total</sub> = (ℒ<sub>proj1</sub> + ℒ<sub>proj2</sub>) + λ·ℒ<sub>MVG</sub></span><span class="eq">Eq. 10</span></td>
+          <td class="c-code"><span class="m">ℒ = ℒ<sub>cls</sub> + λ(e)·( ℒ<sub>pca</sub> + ℒ<sub>gl</sub> + <span class="co">0.05</span>·ℓ(D(Ā<sup>(1)</sup><sub>T</sub>)<sup>det</sup>,<span class="co">1</span>) + ℓ(D(A<sup>qk</sup><sub>S</sub>),<span class="co">1</span>) )</span><span class="why">Thêm ℒ<sub>cls</sub> (chính) + λ đổi theo epoch.</span></td>
+        </tr>
+        <tr>
+          <td class="c-name">Phân loại</td>
+          <td class="c-paper"><span class="none">không nêu trong bài</span></td>
+          <td class="c-code"><span class="m">ℒ<sub>cls</sub> = CE(z<sub>S</sub>, y)</span><span class="why">CrossEntropy + label smoothing.</span></td>
+        </tr>
+        <tr>
+          <td class="c-name">Attention<br><span class="co">proj1 / pca</span></td>
+          <td class="c-paper"><span class="m">ℒ<sub>proj1</sub> = ‖Attn<sub>T</sub> − PCAttn<sub>S</sub>‖² + ‖<span style="white-space:nowrap">V<sub>T</sub>V<sub>T</sub>/√d − V<sub>S</sub>V<sub>S</sub>/√d</span>‖²</span><span class="eq">Eq. 4</span></td>
+          <td class="c-code"><span class="m"><span class="co">0.2</span>·MSE(A<sup>qk</sup><sub>S</sub>, Ā<sup>(1)</sup><sub>T</sub>) + <span class="co">0.05</span>·MSE(A<sup>vv</sup><sub>S</sub>, Ā<sup>(2)</sup><sub>T</sub>)</span><span class="why">Có hệ số 0.2 / 0.05; student <b>trước softmax</b>, teacher <b>sau softmax</b>.</span></td>
+        </tr>
+        <tr>
+          <td class="c-name">Feature<br><span class="co">proj2 / gl</span></td>
+          <td class="c-paper"><span class="m">ℒ<sub>proj2</sub> = ‖h<sub>T</sub> − h′<sub>S</sub>‖²</span><span class="eq">Eq. 6</span></td>
+          <td class="c-code"><span class="m">MSE(z<sub>S</sub>,z<sub>T</sub>) + MSE(t<sub>S</sub>,t<sub>T</sub>) + <span class="co">0.05</span>·MSE(f<sub>S</sub>,f<sub>T</sub>)</span><span class="why">Khớp <b>3 thứ</b>: logits (MSE, không KL) + class token + feature.</span></td>
+        </tr>
+        <tr>
+          <td class="c-name">Discriminator<br><span class="co">MAD</span></td>
+          <td class="c-paper"><span class="m"><span style="white-space:nowrap">(1/m)Σ[ −log D(h<sub>T</sub>) − log(1−D(h′<sub>S</sub>)) ]</span></span><span class="eq">Eq. 8</span></td>
+          <td class="c-code"><span class="m">½[ ℓ(D(Ā<sup>(1)</sup><sub>T</sub>),<span class="co">1</span>) + ℓ(D(A<sup>qk</sup><sub>S</sub>),<span class="co">0</span>) ]</span><span class="why">D chạy trên <b>attention map</b> (không phải feature h); BCEWithLogits.</span></td>
+        </tr>
+        <tr>
+          <td class="c-name">Generator<br><span class="co">MVG</span></td>
+          <td class="c-paper"><span class="m">ℒ<sub>MVG</sub> = (1/m)Σ log(1−D(h′<sub>S</sub>))</span><span class="eq">Eq. 9</span></td>
+          <td class="c-code"><span class="m">ℓ(D(A<sup>qk</sup><sub>S</sub>),<span class="co">1</span>)</span><span class="why">Bản non-saturating −log D (ổn định hơn log(1−D)).</span></td>
+        </tr>
+        <tr>
+          <td class="c-name">Trọng số λ</td>
+          <td class="c-paper"><span class="none">hằng số (không nêu lịch)</span></td>
+          <td class="c-code"><span class="m">λ(e) = min( max(e−25,0)/50 , <span class="co">0.2</span> )</span><span class="why">Warmup từ epoch 25, trần 0.2.</span></td>
+        </tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <!-- discrepancies -->
+  <div class="sec-head" style="margin-top:34px"><span class="num">≠</span><h2>Chỗ bài báo sai / thiếu so với code</h2></div>
+  <p class="note" style="margin-top:0">Bài báo: <span class="math" style="display:inline-flex;font-size:14px">ℒ<sub>total</sub> = (ℒ<sub>proj1</sub> + ℒ<sub>proj2</sub>) + λ·ℒ<sub>MVG</sub></span> (Eq. 4–10) — lệch code ở 7 điểm:</p>
+  <ol class="diffs">
+    <li><strong>Thiếu ℒ<sub>cls</sub> và lịch λ(e).</strong> Code có CrossEntropy (thành phần chính) và λ <b>thay đổi theo epoch</b> (warmup từ epoch 25, trần 0.2); bài báo coi λ hằng số.</li>
+    <li><strong>Thiếu hệ số thật:</strong> code dùng <code>0.2 / 0.05</code> trong ℒ<sub>pca</sub>, <code>1 / 1 / 0.05</code> trong ℒ<sub>gl</sub>, và <code>0.05</code> trước số hạng adversarial-real.</li>
+    <li><strong>ℒ<sub>gl</sub> rộng hơn ℒ<sub>proj2</sub>.</strong> Bài báo chỉ khớp feature ‖h<sub>T</sub>−h′<sub>S</sub>‖². Code khớp <b>3 thứ</b>: logits (MSE, không phải KL), class token, feature.</li>
+    <li><strong>Adversarial chạy trên ATTENTION MAP, không phải feature h.</strong> Bài báo cho D phân biệt h<sub>T</sub> vs h′<sub>S</sub>. Code cho D (PatchGAN) phân biệt <b>attention</b> teacher Ā<sup>(1)</sup><sub>T</sub> vs student A<sup>qk</sup><sub>S</sub>.</li>
+    <li><strong>GAN là vanilla (BCEWithLogits)</strong>, không phải log(1−D) thuần. Số hạng generator là ℓ(D(A<sup>qk</sup><sub>S</sub>),1) — bản non-saturating −log D, ổn định hơn.</li>
+    <li><strong>Số hạng adversarial-real trong loss student là "loss chết"</strong> (gradient = 0 do <code>pred_real.detach()</code>).</li>
+    <li><strong>Bất đối xứng softmax:</strong> student so <b>điểm trước softmax</b> (QKᵀ/√d) với <b>xác suất sau softmax</b> của teacher — khác thang đo. Có thể là lý do công thức attention bài báo trông "không khớp".</li>
+  </ol>
 </div>
