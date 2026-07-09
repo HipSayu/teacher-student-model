@@ -38,10 +38,8 @@ from new_utils import RASampler
 from torch import nn
 from torch.utils.data.dataloader import default_collate
 from torchvision.transforms.functional import InterpolationMode
-from torchvision.models import (
-    ViT_B_16_Weights,
-)  # bộ trọng số pretrain của teacher ViT-B/16
-from dist_train_teacher import build_teacher  # dùng chung cách dựng ViT N lớp (GĐ1)
+from models.resnet_cakd import resnet50_cakd  # STUDENT port torch 2.x
+from models.vit_cakd import build_teacher      # TEACHER ViT-B/16 port torch 2.x
 
 
 # =============================================================================
@@ -152,18 +150,16 @@ def train_one_epoch(
                 + gan_criterion(pred_fake, True)
             )
 
-        # ---- BƯỚC 1: CẬP NHẬT DISCRIMINATOR ----
-        d_optimizer.zero_grad()  # xóa gradient cũ
-        gan_loss.backward(
-            retain_graph=True
-        )  # lan truyền ngược gan_loss; giữ lại đồ thị để backward loss kế
-        d_optimizer.step()  # cập nhật trọng số discriminator
-
-        # ---- BƯỚC 2: CẬP NHẬT STUDENT ----
+        # ---- BƯỚC 1: CẬP NHẬT STUDENT ----
+        # LƯU Ý (port torch 2.x): đảo thứ tự so với bản gốc (student TRƯỚC, discriminator SAU).
+        # Torch 2.x cấm gọi d_optimizer.step() (sửa trọng số discriminator IN-PLACE) xen giữa hai
+        # backward dùng chung đồ thị discriminator (bản gốc làm vậy nên vỡ trên torch 2.x).
+        # Đồ thị discriminator ĐỘC LẬP với student (mọi input vào D đều .detach()), nên đảo thứ tự
+        # KHÔNG đổi kết quả. retain_graph=True để BƯỚC 2 còn dùng lại đồ thị D chung với loss.
         optimizer.zero_grad()
         if scaler is not None:
             # Nhánh mixed-precision (AMP): scale loss để tránh underflow float16
-            scaler.scale(loss).backward()
+            scaler.scale(loss).backward(retain_graph=True)
             if args.clip_grad_norm is not None:
                 # Nếu cắt gradient thì phải "unscale" trước
                 scaler.unscale_(optimizer)
@@ -172,12 +168,17 @@ def train_one_epoch(
             scaler.update()
         else:
             # Nhánh thường (float32)
-            loss.backward()
+            loss.backward(retain_graph=True)
             if args.clip_grad_norm is not None:
                 nn.utils.clip_grad_norm_(
                     model.parameters(), args.clip_grad_norm
                 )  # cắt gradient chống bùng nổ
             optimizer.step()
+
+        # ---- BƯỚC 2: CẬP NHẬT DISCRIMINATOR ----
+        d_optimizer.zero_grad()  # xóa gradient cũ (kể cả grad rác D nhận từ loss ở BƯỚC 1)
+        gan_loss.backward()  # dùng lại đồ thị D đã giữ; cập nhật riêng discriminator
+        d_optimizer.step()
 
         # ---- CẬP NHẬT MODEL EMA (bản trung bình mượt của student, nếu bật) ----
         if model_ema and i % args.model_ema_steps == 0:
@@ -187,9 +188,10 @@ def train_one_epoch(
                 model_ema.n_averaged.fill_(0)
 
         # ---- GHI LOG SỐ LIỆU ----
+        # min(5, num_classes): với 3 lớp thì topk=5 sẽ lỗi -> dùng "acc5" = acc@min(5,C)
         acc1, acc5 = new_utils.accuracy(
-            output, target, topk=(1, 5)
-        )  # accuracy top-1/top-5
+            output, target, topk=(1, min(5, output.shape[1]))
+        )  # accuracy top-1 / top-min(5,C)
         batch_size = image.shape[0]
         metric_logger.update(loss=loss.item(), lr=optimizer.param_groups[0]["lr"])
         metric_logger.meters["acc1"].update(acc1.item(), n=batch_size)
@@ -219,7 +221,7 @@ def evaluate(model, criterion, data_loader, device, print_freq=100, log_suffix="
             )  # chỉ lấy logits (bỏ 3 đầu ra distill bằng _)
             loss = criterion(output, target)
 
-            acc1, acc5 = new_utils.accuracy(output, target, topk=(1, 5))
+            acc1, acc5 = new_utils.accuracy(output, target, topk=(1, min(5, output.shape[1])))
             # FIXME need to take into account that the datasets
             # could have been padded in distributed setup
             batch_size = image.shape[0]
@@ -410,16 +412,9 @@ def main(args):
     )
 
     print("Creating model")
-    # >>> STUDENT: ResNet-50 pretrained ImageNet, rồi thay fc -> num_classes <<<
-    if args.student_pretrained:
-        # weights ép num_classes=1000 và nạp strict=False (bỏ qua pca/gl/cls_proj)
-        model = torchvision.models.resnet50_cakd(
-            weights=torchvision.models.ResNet50_Weights.IMAGENET1K_V1
-        )
-        model.fc = nn.Linear(512 * 4, num_classes)  # thay đầu phân loại -> num_classes
-        nn.init.zeros_(model.fc.bias)
-    else:
-        model = torchvision.models.resnet50_cakd(num_classes=num_classes)
+    # >>> STUDENT: ResNet-50 CAKD (port torch 2.x). pretrained=True -> nạp backbone ImageNet
+    #     (bỏ fc, strict=False; pca/gl/cls_proj giữ khởi tạo ngẫu nhiên) <<<
+    model = resnet50_cakd(num_classes=num_classes, pretrained=args.student_pretrained)
 
     # >>> TEACHER: ViT-B/16 đã fine-tune xuống num_classes lớp (từ GĐ1) <<<
     teacher = build_teacher(num_classes, pretrained=False)  # khung N lớp, chưa trọng số

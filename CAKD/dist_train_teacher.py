@@ -14,20 +14,10 @@ import time
 import new_utils
 import torch
 import torch.utils.data
-import torchvision
 from torch import nn
-from torchvision.models import ViT_B_16_Weights
 
-from dist_train_cakd import load_data  # tai su dung loader ImageFolder (DRY)
-
-
-def build_teacher(num_classes, pretrained=True):
-    """Tao ViT-B/16, nap pretrain ImageNet, thay head thanh num_classes lop."""
-    weights = ViT_B_16_Weights.IMAGENET1K_V1 if pretrained else None
-    model = torchvision.models.vit_b_16(weights=weights)  # head 1000 lop
-    model.heads.head = nn.Linear(model.hidden_dim, num_classes)  # thay head -> num_classes
-    nn.init.zeros_(model.heads.head.bias)
-    return model
+from dist_train_cakd import load_data       # tai su dung loader ImageFolder (DRY)
+from models.vit_cakd import build_teacher   # ViT-B/16 3 lop, port torch 2.x
 
 
 def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, args, scaler=None):
