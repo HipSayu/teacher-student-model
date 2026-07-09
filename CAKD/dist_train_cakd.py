@@ -374,6 +374,10 @@ def main(args):
 
     train_dir = os.path.join(args.data_path, "train")
     val_dir = os.path.join(args.data_path, "val")
+    # test-only không cần tập train; nếu thiếu thư mục train thì dùng val làm chỗ giữ chỗ
+    # (tránh FileNotFoundError khi chỉ có val/test để đánh giá).
+    if args.test_only and not os.path.isdir(train_dir):
+        train_dir = val_dir
     dataset, dataset_test, train_sampler, test_sampler = load_data(
         train_dir, val_dir, args
     )
