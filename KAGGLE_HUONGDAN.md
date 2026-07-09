@@ -14,11 +14,13 @@
 ```
 → Lệnh thứ 2 phải in ra `glass  paper  plastic`. Nếu path khác, thay lại `--src` ở Ô 2 & Ô 6.
 
-## Ô 1 — Clone code + cài einops
+## Ô 1 — Clone code (hoặc cập nhật nếu đã clone) + cài einops
 ```bash
-!git clone -b feat/cakd-3class-kaggle https://github.com/HipSayu/teacher-student-model.git /kaggle/working/repo
+![ -d /kaggle/working/repo ] && (cd /kaggle/working/repo && git pull) \
+  || git clone -b feat/cakd-3class-kaggle https://github.com/HipSayu/teacher-student-model.git /kaggle/working/repo
 !pip install -q einops
 ```
+> Ô này chạy lại nhiều lần được: chưa có thì clone, có rồi thì `git pull` lấy bản mới nhất.
 
 ## Ô 2 — Reorg ảnh → ImageFolder (bỏ labels/, chỉ lấy ảnh)
 ```bash
@@ -115,10 +117,10 @@ for c, p in sorted(zip(classes, prob.tolist()), key=lambda x: -x[1]):
 Lần đầu nên chạy 2 epoch để chắc pipeline thông (không lỗi), rồi mới chạy Ô 4/5 với epoch đầy đủ:
 ```bash
 # teacher thử
-!cd /kaggle/working/repo/CAKD && torchrun --nproc_per_node=1 dist_train_teacher.py \
+!cd /kaggle/working/repo/CAKD && PYTHONUNBUFFERED=1 torchrun --nproc_per_node=1 dist_train_teacher.py \
   --data-path /kaggle/working/data_if --batch-size 16 --epochs 2 --amp --output-dir /kaggle/working
 # distill thử
-!cd /kaggle/working/repo/CAKD && torchrun --nproc_per_node=1 dist_train_cakd.py \
+!cd /kaggle/working/repo/CAKD && PYTHONUNBUFFERED=1 torchrun --nproc_per_node=1 dist_train_cakd.py \
   --data-path /kaggle/working/data_if --teacher-weights /kaggle/working/teacher_3cls.pth \
   --student-pretrained --batch-size 16 --lr 0.0125 --epochs 2 \
   --distill-start 0 --distill-ramp 2 --amp --output-dir /kaggle/working/results
