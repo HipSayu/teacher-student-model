@@ -41,6 +41,7 @@ from torchvision.transforms.functional import InterpolationMode
 from torchvision.models import (
     ViT_B_16_Weights,
 )  # bộ trọng số pretrain của teacher ViT-B/16
+from dist_train_teacher import build_teacher  # dùng chung cách dựng ViT N lớp (GĐ1)
 
 
 # =============================================================================
@@ -143,7 +144,8 @@ def train_one_epoch(
             # (hệ số=0), rồi TĂNG DẦN ảnh hưởng của distill, chặn trần ở 0.2. Tránh làm hỏng student sớm.
             # Trong ngoặc: pca_loss + gl_loss + phần GAN ép student đánh lừa discriminator
             # (gan_criterion(pred_fake, True) = student MUỐN discriminator tưởng attention của nó là THẬT).
-            loss = cls_loss + min(max(epoch - 25, 0) / 50.0, 0.2) * 1.0 * (
+            _lam = min(max(epoch - args.distill_start, 0) / float(args.distill_ramp), 0.2)
+            loss = cls_loss + _lam * 1.0 * (
                 pca_loss
                 + gl_loss
                 + 0.05 * gan_criterion(pred_real.detach(), True)
@@ -408,13 +410,22 @@ def main(args):
     )
 
     print("Creating model")
-    # >>> TẠO BỘ BA MODEL CỦA CAKD <<<
-    model = torchvision.models.resnet50_cakd(
-        num_classes=num_classes
-    )  # STUDENT (ResNet-50 độ thêm)
-    teacher = torchvision.models.vit_b_16(
-        weights=ViT_B_16_Weights.IMAGENET1K_V1
-    )  # TEACHER (ViT pretrain)
+    # >>> STUDENT: ResNet-50 pretrained ImageNet, rồi thay fc -> num_classes <<<
+    if args.student_pretrained:
+        # weights ép num_classes=1000 và nạp strict=False (bỏ qua pca/gl/cls_proj)
+        model = torchvision.models.resnet50_cakd(
+            weights=torchvision.models.ResNet50_Weights.IMAGENET1K_V1
+        )
+        model.fc = nn.Linear(512 * 4, num_classes)  # thay đầu phân loại -> num_classes
+        nn.init.zeros_(model.fc.bias)
+    else:
+        model = torchvision.models.resnet50_cakd(num_classes=num_classes)
+
+    # >>> TEACHER: ViT-B/16 đã fine-tune xuống num_classes lớp (từ GĐ1) <<<
+    teacher = build_teacher(num_classes, pretrained=False)  # khung N lớp, chưa trọng số
+    tea_ckpt = torch.load(args.teacher_weights, map_location="cpu")
+    teacher.load_state_dict(tea_ckpt["model"] if "model" in tea_ckpt else tea_ckpt)
+    print(f"Đã nạp teacher {num_classes} lớp từ {args.teacher_weights}")
     # DISCRIMINATOR: input_nc=1 (attention map 1 kênh), ndf=8 (nhẹ), 3 lớp
     discriminator = new_utils.NLayerDiscriminator(input_nc=1, ndf=8, n_layers=3)
     model.to(device)
@@ -942,6 +953,18 @@ def get_args_parser(add_help=True):
     parser.add_argument(
         "--weights", default=None, type=str, help="the weights enum name to load"
     )
+    parser.add_argument(
+        "--teacher-weights", default="/kaggle/working/teacher_3cls.pth", type=str,
+        help="checkpoint teacher đã fine-tune xuống số lớp mục tiêu (từ GĐ1)")
+    parser.add_argument(
+        "--student-pretrained", action="store_true",
+        help="nạp ResNet-50 pretrained ImageNet cho student rồi thay fc")
+    parser.add_argument(
+        "--distill-start", default=5, type=int,
+        help="epoch bắt đầu distill (gốc ImageNet = 25)")
+    parser.add_argument(
+        "--distill-ramp", default=20, type=int,
+        help="số epoch tăng dần lambda lên trần 0.2 (gốc ImageNet = 50)")
     return parser
 
 
