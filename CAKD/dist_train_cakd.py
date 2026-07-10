@@ -422,7 +422,9 @@ def main(args):
 
     # >>> TEACHER: ViT-B/16 đã fine-tune xuống num_classes lớp (từ GĐ1) <<<
     teacher = build_teacher(num_classes, pretrained=False)  # khung N lớp, chưa trọng số
-    tea_ckpt = torch.load(args.teacher_weights, map_location="cpu")
+    # weights_only=False: checkpoint của ta có chứa argparse.Namespace (torch>=2.6 mặc định chặn).
+    # File tự sinh, tin cậy nên cho phép.
+    tea_ckpt = torch.load(args.teacher_weights, map_location="cpu", weights_only=False)
     teacher.load_state_dict(tea_ckpt["model"] if "model" in tea_ckpt else tea_ckpt)
     print(f"Đã nạp teacher {num_classes} lớp từ {args.teacher_weights}")
     # DISCRIMINATOR: input_nc=1 (attention map 1 kênh), ndf=8 (nhẹ), 3 lớp
@@ -610,7 +612,7 @@ def main(args):
         )
 
     if args.resume:
-        checkpoint = torch.load(args.resume, map_location="cpu")
+        checkpoint = torch.load(args.resume, map_location="cpu", weights_only=False)
         model_without_ddp.load_state_dict(checkpoint["model"])
         if not args.test_only:
             optimizer.load_state_dict(checkpoint["optimizer"])

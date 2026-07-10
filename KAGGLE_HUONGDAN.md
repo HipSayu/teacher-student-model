@@ -59,7 +59,7 @@ tốt **trước khi** sang Ô 5.
 !PYTHONUNBUFFERED=1 torchrun --nproc_per_node=1 dist_train_cakd.py \
   --data-path /kaggle/working/data_if \
   --teacher-weights /kaggle/working/teacher_3cls.pth \
-  --student-pretrained \
+  --student-pretrained --workers 4 \
   --batch-size 32 --lr 0.0125 \
   --lr-warmup-epochs 5 --lr-warmup-method linear \
   --auto-augment ta_wide --epochs 120 --random-erase 0.1 --mixup-alpha 0.2 \
@@ -84,7 +84,7 @@ Log phải in `pca_loss / gl_loss / cls_loss / gan_loss` (KHÔNG lỗi shape). S
 !torchrun --nproc_per_node=1 dist_train_cakd.py \
   --data-path /kaggle/working/data_test \
   --teacher-weights /kaggle/working/teacher_3cls.pth \
-  --test-only --resume /kaggle/working/results/checkpoint.pth --batch-size 32
+  --test-only --resume /kaggle/working/results/checkpoint.pth --batch-size 32 --workers 4
 ```
 > Chỉ nhìn **Acc@1** (với 3 lớp thì "Acc@5" thực chất là Acc@3, không quan trọng).
 
@@ -97,7 +97,7 @@ from new_utils import ClassificationPresetEval
 
 classes = ["glass", "paper", "plastic"]        # đúng thứ tự alphabet của ImageFolder
 model = resnet50_cakd(num_classes=3).cuda().eval()
-ck = torch.load("/kaggle/working/results/checkpoint.pth", map_location="cpu")
+ck = torch.load("/kaggle/working/results/checkpoint.pth", map_location="cpu", weights_only=False)
 model.load_state_dict(ck["model"])
 tf = ClassificationPresetEval(crop_size=224, resize_size=224)
 
@@ -122,7 +122,7 @@ Lần đầu nên chạy 2 epoch để chắc pipeline thông (không lỗi), r�
 # distill thử
 !cd /kaggle/working/repo/CAKD && PYTHONUNBUFFERED=1 torchrun --nproc_per_node=1 dist_train_cakd.py \
   --data-path /kaggle/working/data_if --teacher-weights /kaggle/working/teacher_3cls.pth \
-  --student-pretrained --batch-size 16 --lr 0.0125 --epochs 2 \
+  --student-pretrained --workers 4 --batch-size 16 --lr 0.0125 --epochs 2 \
   --distill-start 0 --distill-ramp 2 --amp --output-dir /kaggle/working/results
 ```
 
