@@ -16,7 +16,7 @@ import torch
 import torch.utils.data
 from torch import nn
 
-from dist_train_cakd import load_data       # tai su dung loader ImageFolder (DRY)
+from dist_train_cakd import load_data, _append_history  # tai su dung (DRY)
 from models.vit_cakd import build_teacher   # ViT-B/16 3 lop, port torch 2.x
 
 
@@ -42,6 +42,7 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, arg
         acc1 = new_utils.accuracy(logits, target, topk=topk)[0]
         metric_logger.update(loss=loss.item(), lr=optimizer.param_groups[0]["lr"])
         metric_logger.meters["acc1"].update(acc1.item(), n=image.shape[0])
+    return metric_logger  # để main ghi lịch sử train (vẽ biểu đồ)
 
 
 def evaluate(model, criterion, data_loader, device):
@@ -102,9 +103,10 @@ def main(args):
     for epoch in range(args.epochs):
         if args.distributed:
             train_sampler.set_epoch(epoch)
-        train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, args, scaler)
+        train_ml = train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, args, scaler)
         lr_scheduler.step()
         acc = evaluate(model, criterion, data_loader_test, device)
+        _append_history(args, epoch, train_ml, acc, fname="history_teacher.json")
         if args.output_dir:
             ckpt = {"model": model_without_ddp.state_dict(), "epoch": epoch,
                     "classes": dataset.classes, "args": args}

@@ -25,6 +25,7 @@
 # =============================================================================
 
 import datetime
+import json
 import os
 import time
 import warnings
@@ -201,6 +202,44 @@ def train_one_epoch(
         metric_logger.meters["gl_loss"].update(gl_loss.item(), n=batch_size)
         metric_logger.meters["img/s"].update(batch_size / (time.time() - start_time))
         metric_logger.meters["gan_loss"].update(gan_loss.item(), n=batch_size)
+    return metric_logger  # trả về để main ghi lịch sử train (vẽ biểu đồ)
+
+
+# =============================================================================
+# _append_history — GHI LỊCH SỬ TRAIN RA JSON (mỗi epoch 1 dòng) để vẽ biểu đồ
+# =============================================================================
+def _append_history(args, epoch, train_ml, test_acc, fname="history_cakd.json"):
+    """Nối 1 bản ghi {epoch, các loss, acc} vào <output_dir>/<fname>. Chỉ rank 0 ghi.
+    Ghi đè cả file mỗi lần -> kết quả từng epoch vẫn còn nếu job dừng giữa chừng."""
+    if not args.output_dir or not new_utils.is_main_process():
+        return
+
+    def g(k):
+        m = train_ml.meters.get(k)
+        return round(m.global_avg, 5) if m is not None else None
+
+    record = {
+        "epoch": epoch,
+        "train_loss": g("loss"),
+        "train_acc1": g("acc1"),
+        "test_acc1": round(float(test_acc), 5),
+        "cls_loss": g("cls_loss"),
+        "pca_loss": g("pca_loss"),
+        "gl_loss": g("gl_loss"),
+        "gan_loss": g("gan_loss"),
+        "lr": g("lr"),
+    }
+    path = os.path.join(args.output_dir, fname)
+    hist = []
+    if os.path.exists(path):
+        try:
+            with open(path) as f:
+                hist = json.load(f)
+        except Exception:
+            hist = []
+    hist.append(record)
+    with open(path, "w") as f:
+        json.dump(hist, f, indent=2)
 
 
 # =============================================================================
@@ -644,7 +683,7 @@ def main(args):
                 epoch
             )  # đổi cách trộn dữ liệu mỗi epoch (đồng bộ giữa các GPU)
         # Huấn luyện 1 epoch (chạy toàn bộ logic loss & GAN ở train_one_epoch phía trên)
-        train_one_epoch(
+        train_ml = train_one_epoch(
             model,
             discriminator,
             teacher,
@@ -662,9 +701,11 @@ def main(args):
         )
         lr_scheduler.step()  # giảm learning rate của student theo lịch
         d_lr_scheduler.step()  # giảm learning rate của discriminator theo lịch
-        evaluate(
+        test_acc = evaluate(
             model, criterion, data_loader_test, device=device
         )  # đánh giá accuracy sau epoch
+        # Ghi lịch sử train ra JSON mỗi epoch (để vẽ biểu đồ bằng tools/plot_training.py)
+        _append_history(args, epoch, train_ml, test_acc)
         if model_ema:
             evaluate(
                 model_ema, criterion, data_loader_test, device=device, log_suffix="EMA"

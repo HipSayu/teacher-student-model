@@ -111,6 +111,23 @@ for c, p in sorted(zip(classes, prob.tolist()), key=lambda x: -x[1]):
     print(f"{c:8s} {p:.3f}")
 ```
 
+## Ô 8 — Vẽ biểu đồ quá trình train
+> Từ bản mới, mỗi epoch các script tự ghi lịch sử ra `history_teacher.json` / `history_cakd.json`
+> (loss, accuracy...). Ô này đọc chúng và vẽ biểu đồ. **Chỉ chạy được sau khi đã train bằng code mới**
+> (nhớ `git pull` ở Ô 1). File history nằm cùng `--output-dir` của mỗi bước.
+```python
+!python /kaggle/working/repo/tools/plot_training.py \
+  --history /kaggle/working/history_teacher.json --out /kaggle/working/plot_teacher.png
+!python /kaggle/working/repo/tools/plot_training.py \
+  --history /kaggle/working/results/history_cakd.json --out /kaggle/working/plot_cakd.png
+
+from IPython.display import Image, display
+display(Image('/kaggle/working/plot_teacher.png'))   # teacher: loss + accuracy
+display(Image('/kaggle/working/plot_cakd.png'))       # cakd: loss tổng + 4 loss thành phần + accuracy
+```
+- **Biểu đồ teacher:** 2 panel — Loss (train), Accuracy (train vs val).
+- **Biểu đồ CAKD:** 3 panel — Loss tổng, các loss thành phần `cls/pca/gl/gan` (thang log), Accuracy (train vs val).
+
 ---
 
 ## Chạy thử nhanh trước khi train full
