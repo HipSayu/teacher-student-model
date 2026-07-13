@@ -62,6 +62,11 @@ class Base64Request(BaseModel):
     topk: int = 3
 
 
+class DetectBase64Request(BaseModel):
+    image: str
+    thresh: float = 0.35
+
+
 def _decode_image(raw: bytes) -> Image.Image:
     try:
         return Image.open(io.BytesIO(raw))
@@ -108,6 +113,28 @@ def predict_base64(req: Base64Request):
     except (binascii.Error, ValueError):
         raise HTTPException(status_code=400, detail="Chuoi base64 khong hop le.")
     return classifier.predict(_decode_image(raw), topk=req.topk)
+
+
+@app.post("/detect")
+async def detect(file: UploadFile = File(...), thresh: float = 0.35):
+    """Phan loai + bounding box (CAM localization) tu file anh multipart."""
+    if classifier is None:
+        raise HTTPException(status_code=503, detail="Model dang nap.")
+    img = _decode_image(await file.read())
+    return classifier.detect(img, thresh=thresh)
+
+
+@app.post("/detect_base64")
+def detect_base64(req: DetectBase64Request):
+    """Phan loai + bounding box tu chuoi base64."""
+    if classifier is None:
+        raise HTTPException(status_code=503, detail="Model dang nap.")
+    data = req.image.split(",", 1)[-1]
+    try:
+        raw = base64.b64decode(data)
+    except (binascii.Error, ValueError):
+        raise HTTPException(status_code=400, detail="Chuoi base64 khong hop le.")
+    return classifier.detect(_decode_image(raw), thresh=req.thresh)
 
 
 # --- Trang demo camera realtime (phuc vu file tinh) ---------------------------

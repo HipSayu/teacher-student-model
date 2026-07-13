@@ -70,9 +70,17 @@ MODEL_PATH=./model_60.pth uvicorn app:app --host 0.0.0.0 --port 8000
 |--------|-------------------|-------|
 | GET    | `/health`         | trạng thái + metadata (device, epoch, classes) |
 | GET    | `/classes`        | danh sách lớp |
-| POST   | `/predict`        | multipart `file=<ảnh>` → dự đoán |
+| POST   | `/predict`        | multipart `file=<ảnh>` → nhãn + xác suất |
 | POST   | `/predict_base64` | JSON `{"image":"<base64|data-uri>","topk":3}` |
+| POST   | `/detect`         | multipart `file=<ảnh>` → nhãn + xác suất + **bounding box** (CAM) |
+| POST   | `/detect_base64`  | JSON `{"image":"...","thresh":0.35}` → như trên |
 | GET    | `/`               | trang demo camera realtime |
+
+> **`/detect` — bounding box bằng CAM (weakly-supervised localization).** Model là bộ
+> **phân loại**, không phải detector. `/detect` dùng feature map cuối + trọng số lớp `fc`
+> để tính vùng model chú ý nhất cho lớp dự đoán, rồi suy ra **1** bounding box
+> (`box: {x,y,w,h}` normalize `[0,1]` theo toàn khung). Phù hợp 1 vật thể chính trên nền
+> sạch; **không** tách được nhiều vật. Muốn multi-object thật cần train detector (YOLO) riêng.
 
 Ví dụ:
 

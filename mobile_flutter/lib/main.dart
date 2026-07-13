@@ -43,18 +43,30 @@ class Prediction {
   final double confidence;
   final Map<String, double> probs;
   final double inferenceMs;
-  Prediction(this.label, this.confidence, this.probs, this.inferenceMs);
+  final Rect? box; // bounding box normalize [0,1] theo khung (null neu API khong tra)
+  Prediction(this.label, this.confidence, this.probs, this.inferenceMs, this.box);
 
   factory Prediction.fromJson(Map<String, dynamic> j) {
     final probs = <String, double>{};
     (j['probs'] as Map<String, dynamic>).forEach(
       (k, v) => probs[k] = (v as num).toDouble(),
     );
+    Rect? box;
+    if (j['box'] != null) {
+      final b = j['box'] as Map<String, dynamic>;
+      box = Rect.fromLTWH(
+        (b['x'] as num).toDouble(),
+        (b['y'] as num).toDouble(),
+        (b['w'] as num).toDouble(),
+        (b['h'] as num).toDouble(),
+      );
+    }
     return Prediction(
       j['label'] as String,
       (j['confidence'] as num).toDouble(),
       probs,
       (j['inference_ms'] as num).toDouble(),
+      box,
     );
   }
 }
@@ -138,7 +150,7 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
       final shot = await controller.takePicture();
       final bytes = await shot.readAsBytes();
       final sw = Stopwatch()..start();
-      final req = http.MultipartRequest('POST', Uri.parse('$_apiUrl/predict'))
+      final req = http.MultipartRequest('POST', Uri.parse('$_apiUrl/detect'))
         ..files.add(
           http.MultipartFile.fromBytes('file', bytes, filename: 'frame.jpg'),
         );
@@ -242,6 +254,12 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
                   CameraPreview(controller)
                 else
                   const Center(child: CircularProgressIndicator()),
+                if (pred?.box != null)
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: DetectionBoxPainter(pred!.box!, pred.label, pred.confidence),
+                    ),
+                  ),
                 if (pred != null)
                   Positioned(
                     left: 0,
@@ -271,6 +289,64 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     );
   }
 }
+
+// Ve bounding box (toa do normalize [0,1] theo khung) + ten vat the phia tren box.
+class DetectionBoxPainter extends CustomPainter {
+  final Rect nbox; // normalize [0,1]
+  final String label;
+  final double conf;
+  const DetectionBoxPainter(this.nbox, this.label, this.conf);
+
+  static const _accent = Color(0xFF39C6FF);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Rect.fromLTWH(
+      nbox.left * size.width,
+      nbox.top * size.height,
+      nbox.width * size.width,
+      nbox.height * size.height,
+    );
+    final stroke = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..color = _accent;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, const Radius.circular(8)),
+      stroke,
+    );
+
+    // Nhan ten + do tin cay, dat ngay tren canh tren cua box.
+    final tp = TextPainter(
+      text: TextSpan(
+        text: '  $label ${(conf * 100).toStringAsFixed(0)}%  ',
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 14,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+
+    final labelH = tp.height + 4;
+    var labelTop = rect.top - labelH;
+    if (labelTop < 0) labelTop = rect.top; // neu sat mep tren thi dat trong box
+    final bg = Paint()..color = _accent;
+    canvas.drawRect(
+      Rect.fromLTWH(rect.left, labelTop, tp.width, labelH),
+      bg,
+    );
+    tp.paint(canvas, Offset(rect.left, labelTop + 2));
+  }
+
+  @override
+  bool shouldRepaint(covariant DetectionBoxPainter oldDelegate) =>
+      oldDelegate.nbox != nbox ||
+      oldDelegate.label != label ||
+      oldDelegate.conf != conf;
+}
+
 
 class _ResultOverlay extends StatelessWidget {
   final Prediction pred;
