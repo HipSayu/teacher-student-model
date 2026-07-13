@@ -3,9 +3,15 @@
 App Android chụp khung hình camera theo thời gian thực (~2 fps), gửi lên **API CAKD**
 (`deploy/`) và hiển thị nhãn `glass / paper / plastic` cùng thanh xác suất.
 
-Repo này chứa phần **code chính**: `lib/main.dart` + `pubspec.yaml`. Thư mục nền tảng
-(`android/`, `ios/`) do `flutter create` sinh ra — làm theo các bước dưới để có project
-build được APK.
+Repo này đã **scaffold sẵn** (`android/`) và **build sẵn APK**:
+`mobile_flutter/cakd_trash.apk` (~22MB). Cứ copy file này vào điện thoại và cài là chạy —
+API URL mặc định đã trỏ tới `http://10.20.0.82:8000`.
+
+Muốn build lại: `flutter pub get && flutter build apk --release`
+→ `build/app/outputs/flutter-apk/app-release.apk`.
+
+> Cấu hình đã dùng: AGP **8.3.0**, Kotlin 1.9.22, Gradle 8.7 (nâng từ mặc định để tránh
+> lỗi JdkImage khi Flutter dùng JBR Java 21 của Android Studio).
 
 ---
 

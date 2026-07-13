@@ -8,28 +8,36 @@ Phân loại **3 lớp**: `glass` · `paper` · `plastic` (thứ tự alphabet c
 
 ---
 
-## Cấu trúc
+## Cấu trúc — `deploy/` TỰ CHỨA HOÀN TOÀN
 
 ```
 deploy/
-  inference.py        # nạp checkpoint + tiền xử lý + suy luận (dùng CAKD/models/resnet_cakd.py)
+  inference.py        # nạp checkpoint + tiền xử lý + suy luận
   app.py              # FastAPI: /health /classes /predict /predict_base64 + trang demo
   static/index.html   # demo camera realtime (mở bằng trình duyệt điện thoại)
+  CAKD/models/        # định nghĩa model (resnet_cakd.py) — vendored, không cần repo gốc
+  model_60.pth        # weights (476MB) — bake thẳng vào image
   requirements.txt
-  Dockerfile          # CPU-only (torch CPU từ index riêng)
-  docker-compose.yml  # mount model_60.pth vào container, expose cổng 8000
+  Dockerfile          # CPU-only, COPY model vào image (không cần mount)
+  docker-compose.yml
 ```
 
-Model **không** bị bake vào image (499 MB) — được **mount** lúc chạy từ `../model_60.pth`.
+Chỉ cần copy **nguyên thư mục `deploy/`** lên server là chạy được — không phụ thuộc phần
+còn lại của repo.
+
+> ⚠️ `model_60.pth` bị `.gitignore` (rule `*.pth`) → **push bằng git sẽ KHÔNG mang theo model**.
+> Dùng `scp`/`rsync` để copy cả thư mục `deploy/` (gồm `model_60.pth`) lên server. Ví dụ:
+> `rsync -avz deploy/ user@10.20.0.82:~/cakd/deploy/`
 
 ---
 
 ## Chạy bằng Docker (khuyến nghị)
 
-Từ **thư mục gốc repo** (nơi có `model_60.pth`):
+Copy `deploy/` lên server, rồi **chạy ngay trong `deploy/`**:
 
 ```bash
-docker compose -f deploy/docker-compose.yml up --build
+cd deploy
+docker compose up --build -d
 ```
 
 Kiểm tra:
@@ -45,11 +53,13 @@ ví dụ `http://192.168.1.10:8000/`; camera trình duyệt cần HTTPS hoặc `
 
 ## Chạy trực tiếp (không Docker) — để dev
 
+Trong thư mục `deploy/`:
+
 ```bash
 python -m venv .venv && source .venv/Scripts/activate   # Windows Git Bash
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
-pip install -r deploy/requirements.txt
-MODEL_PATH=./model_60.pth uvicorn app:app --host 0.0.0.0 --port 8000 --app-dir deploy
+pip install -r requirements.txt
+MODEL_PATH=./model_60.pth uvicorn app:app --host 0.0.0.0 --port 8000
 ```
 
 ---
@@ -95,12 +105,20 @@ Kết quả:
 
 ---
 
-## Triển khai lên server
+## Triển khai lên server (ví dụ 10.20.0.82)
 
-1. Copy repo (hoặc chỉ `deploy/`, `CAKD/models/`, `model_60.pth`) lên server.
-2. Cài Docker + Docker Compose.
-3. `docker compose -f deploy/docker-compose.yml up --build -d`.
-4. Mở cổng `8000` (hoặc đặt Nginx/Caddy reverse-proxy + HTTPS phía trước — cần HTTPS
-   để camera trình duyệt hoạt động ngoài `localhost`).
+1. Copy **nguyên thư mục `deploy/`** (gồm cả `model_60.pth`) lên server bằng `scp`/`rsync`:
+   ```bash
+   rsync -avz deploy/ user@10.20.0.82:~/cakd/deploy/
+   ```
+2. Trên server, cài Docker + Docker Compose, rồi:
+   ```bash
+   cd ~/cakd/deploy
+   docker compose up --build -d
+   curl http://localhost:8000/health          # kỳ vọng status: ok
+   ```
+3. Mở firewall cổng `8000` để điện thoại LAN gọi vào.
+4. (Tùy chọn) đặt Nginx/Caddy reverse-proxy + HTTPS phía trước — cần HTTPS nếu muốn
+   dùng **trang demo web** camera ngoài `localhost` (app Flutter thì không cần).
 
-App Flutter kết nối tới `http://<IP-server>:8000` (xem `mobile_flutter/README.md`).
+App Flutter kết nối tới `http://10.20.0.82:8000` (đã cắm sẵn — xem `mobile_flutter/README.md`).

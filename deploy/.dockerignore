@@ -1,17 +1,5 @@
-# Build context la goc repo — loai bo thu nang/khong can de build nhanh.
-.git
-.venv
-*.pth
-*.pt
-*.pdf
-*.docx
-img/
-docs/
-HuongDan_DocCode/
-TaiLieu_NenTang/
-mobile_flutter/
+# Build context = deploy/. Chi loai file rac; GIU LAI model_60.pth de bake vao image.
 __pycache__/
 *.pyc
 .pytest_cache/
-log_teacher_student.txt
-*.json
+apk_build.log

@@ -72,8 +72,8 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
   bool _streaming = false;
   int _camIndex = 0;
 
-  // Android emulator: 10.0.2.2 = localhost cua may host. May that: dung IP LAN cua server.
-  String _apiUrl = 'http://10.0.2.2:8000';
+  // Server trien khai API CAKD. Doi qua nut 🔗 neu can (Android emulator dung http://10.0.2.2:8000).
+  String _apiUrl = 'http://10.20.0.82:8000';
   Prediction? _pred;
   String _status = '';
 
