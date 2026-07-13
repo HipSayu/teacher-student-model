@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>CAKD Trash Classifier — Camera realtime</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    background: #0b0f14; color: #e8eef5; display: flex; flex-direction: column;
+    align-items: center; min-height: 100vh; padding: 12px;
+  }
+  h1 { font-size: 1.15rem; margin: 6px 0 2px; }
+  .sub { color: #8aa0b4; font-size: .8rem; margin-bottom: 10px; text-align: center; }
+  .stage { position: relative; width: 100%; max-width: 420px; aspect-ratio: 3/4;
+    background: #000; border-radius: 16px; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,.5); }
+  video { width: 100%; height: 100%; object-fit: cover; }
+  .overlay { position: absolute; left: 0; right: 0; bottom: 0; padding: 14px;
+    background: linear-gradient(transparent, rgba(0,0,0,.82)); }
+  .label { font-size: 1.5rem; font-weight: 700; display: flex; align-items: baseline; gap: 8px; }
+  .conf { font-size: .95rem; color: #9fe6b0; font-weight: 600; }
+  .bars { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .bar { display: grid; grid-template-columns: 64px 1fr 44px; align-items: center; gap: 8px; font-size: .8rem; }
+  .track { height: 8px; background: #1b2632; border-radius: 6px; overflow: hidden; }
+  .fill { height: 100%; width: 0; background: linear-gradient(90deg,#39c,#6ee7b7); transition: width .2s; }
+  .controls { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; justify-content: center; }
+  button { background: #2563eb; color: #fff; border: 0; border-radius: 10px;
+    padding: 11px 18px; font-size: .95rem; font-weight: 600; }
+  button.secondary { background: #263242; }
+  button:disabled { opacity: .5; }
+  .meta { font-size: .72rem; color: #6f8698; margin-top: 8px; height: 1em; }
+</style>
+</head>
+<body>
+  <h1>♻️ CAKD Trash Classifier</h1>
+  <div class="sub">glass · paper · plastic — student ResNet-50 chưng cất từ ViT-B/16</div>
+
+  <div class="stage">
+    <video id="video" playsinline autoplay muted></video>
+    <div class="overlay">
+      <div class="label"><span id="label">—</span><span class="conf" id="conf"></span></div>
+      <div class="bars" id="bars"></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button id="startBtn">Bật camera</button>
+    <button id="flipBtn" class="secondary">Đổi camera</button>
+  </div>
+  <div class="meta" id="meta"></div>
+
+  <canvas id="canvas" width="336" height="448" style="display:none"></canvas>
+
+<script>
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const labelEl = document.getElementById('label');
+const confEl = document.getElementById('conf');
+const barsEl = document.getElementById('bars');
+const metaEl = document.getElementById('meta');
+const startBtn = document.getElementById('startBtn');
+const flipBtn = document.getElementById('flipBtn');
+
+let stream = null, facing = 'environment', running = false, busy = false;
+const INTERVAL_MS = 500;          // tan suat gui khung hinh (~2 fps)
+const API = '';                   // cung origin voi API
+
+async function startCamera() {
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: facing }, audio: false
+    });
+    video.srcObject = stream;
+    running = true;
+    startBtn.textContent = 'Đang chạy…';
+    startBtn.disabled = true;
+    loop();
+  } catch (e) {
+    metaEl.textContent = 'Không mở được camera: ' + e.message;
+  }
+}
+
+function drawBars(probs) {
+  barsEl.innerHTML = '';
+  Object.entries(probs).sort((a,b)=>b[1]-a[1]).forEach(([name, p]) => {
+    const row = document.createElement('div'); row.className = 'bar';
+    row.innerHTML = `<span>${name}</span><span class="track"><span class="fill" style="width:${(p*100).toFixed(0)}%"></span></span><span>${(p*100).toFixed(0)}%</span>`;
+    barsEl.appendChild(row);
+  });
+}
+
+async function loop() {
+  if (!running) return;
+  if (!busy && video.videoWidth) {
+    busy = true;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+    try {
+      const t0 = performance.now();
+      const res = await fetch(API + '/predict_base64', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: dataUrl, topk: 3 })
+      });
+      const j = await res.json();
+      labelEl.textContent = j.label;
+      confEl.textContent = (j.confidence * 100).toFixed(1) + '%';
+      drawBars(j.probs);
+      metaEl.textContent = `infer ${j.inference_ms}ms · round-trip ${(performance.now()-t0).toFixed(0)}ms`;
+    } catch (e) {
+      metaEl.textContent = 'Lỗi gọi API: ' + e.message;
+    } finally { busy = false; }
+  }
+  setTimeout(loop, INTERVAL_MS);
+}
+
+startBtn.onclick = startCamera;
+flipBtn.onclick = () => { facing = facing === 'environment' ? 'user' : 'environment'; if (running) startCamera(); };
+</script>
+</body>
+</html>

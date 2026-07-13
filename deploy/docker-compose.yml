@@ -1,0 +1,24 @@
+# =============================================================================
+# docker-compose.yml — chay API CAKD Trash Classifier (CPU).
+# -----------------------------------------------------------------------------
+# Chay tu THU MUC GOC repo:
+#   docker compose -f deploy/docker-compose.yml up --build
+# model_60.pth o goc repo duoc mount vao /models trong container (khong bake vao image).
+# =============================================================================
+services:
+  cakd-api:
+    build:
+      context: ..                     # goc repo (de COPY CAKD/models)
+      dockerfile: deploy/Dockerfile
+    image: cakd-trash-api:cpu
+    container_name: cakd-trash-api
+    ports:
+      - "8000:8000"
+    environment:
+      MODEL_PATH: /models/model_60.pth
+      DEVICE: cpu
+      CLASS_NAMES: glass,paper,plastic
+      USE_EMA: "0"                     # dat "1" de dung ban EMA neu muon
+    volumes:
+      - ../model_60.pth:/models/model_60.pth:ro   # mount weights read-only
+    restart: unless-stopped

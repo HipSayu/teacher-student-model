@@ -1,0 +1,17 @@
+# Build context la goc repo — loai bo thu nang/khong can de build nhanh.
+.git
+.venv
+*.pth
+*.pt
+*.pdf
+*.docx
+img/
+docs/
+HuongDan_DocCode/
+TaiLieu_NenTang/
+mobile_flutter/
+__pycache__/
+*.pyc
+.pytest_cache/
+log_teacher_student.txt
+*.json
