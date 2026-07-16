@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-<title>CAKD Trash Classifier — Camera realtime</title>
+<title>CAKD Trash Classifier</title>
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }
@@ -14,9 +14,20 @@
   }
   h1 { font-size: 1.15rem; margin: 6px 0 2px; }
   .sub { color: #8aa0b4; font-size: .8rem; margin-bottom: 10px; text-align: center; }
+
+  /* --- Tabs chon che do --- */
+  .tabs { display: flex; gap: 6px; margin-bottom: 12px; background: #131a23;
+    padding: 4px; border-radius: 12px; }
+  .tab { background: transparent; color: #8aa0b4; border: 0; border-radius: 9px;
+    padding: 8px 16px; font-size: .88rem; font-weight: 600; cursor: pointer; }
+  .tab.active { background: #2563eb; color: #fff; }
+
   .stage { position: relative; width: 100%; max-width: 420px; aspect-ratio: 3/4;
     background: #000; border-radius: 16px; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,.5); }
-  video { width: 100%; height: 100%; object-fit: cover; }
+  video, .stage img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .stage img { object-fit: contain; background: #000; }
+  .hidden { display: none !important; }
+
   .overlay { position: absolute; left: 0; right: 0; bottom: 0; padding: 14px;
     background: linear-gradient(transparent, rgba(0,0,0,.82)); }
   .label { font-size: 1.5rem; font-weight: 700; display: flex; align-items: baseline; gap: 8px; }
@@ -25,65 +36,83 @@
   .bar { display: grid; grid-template-columns: 64px 1fr 44px; align-items: center; gap: 8px; font-size: .8rem; }
   .track { height: 8px; background: #1b2632; border-radius: 6px; overflow: hidden; }
   .fill { height: 100%; width: 0; background: linear-gradient(90deg,#39c,#6ee7b7); transition: width .2s; }
+
   .controls { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; justify-content: center; }
   button { background: #2563eb; color: #fff; border: 0; border-radius: 10px;
-    padding: 11px 18px; font-size: .95rem; font-weight: 600; }
+    padding: 11px 18px; font-size: .95rem; font-weight: 600; cursor: pointer; }
   button.secondary { background: #263242; }
   button:disabled { opacity: .5; }
   .meta { font-size: .72rem; color: #6f8698; margin-top: 8px; height: 1em; }
+
+  /* --- Khu vuc upload --- */
+  .dropzone { position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 8px; color: #6f8698;
+    border: 2px dashed #2a3a4d; border-radius: 16px; font-size: .9rem; cursor: pointer;
+    padding: 20px; text-align: center; }
+  .dropzone.dragover { border-color: #2563eb; color: #9cc0ff; background: rgba(37,99,235,.08); }
+  .dropzone svg { width: 44px; height: 44px; opacity: .6; }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #6f8698;
+    border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite;
+    vertical-align: -2px; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
   <h1>♻️ CAKD Trash Classifier</h1>
   <div class="sub">glass · paper · plastic — student ResNet-50 chưng cất từ ViT-B/16</div>
 
+  <div class="tabs">
+    <button class="tab active" data-mode="realtime">Realtime</button>
+    <button class="tab" data-mode="capture">Chụp ảnh</button>
+    <button class="tab" data-mode="upload">Upload</button>
+  </div>
+
   <div class="stage">
     <video id="video" playsinline autoplay muted></video>
-    <div class="overlay">
+    <img id="still" class="hidden" alt="" />
+    <div id="dropzone" class="dropzone hidden">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+        <path d="M12 16V4m0 0l-4 4m4-4l4 4" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke-linecap="round"/>
+      </svg>
+      <div><b>Chạm để chọn ảnh</b><br>hoặc kéo-thả ảnh vào đây</div>
+    </div>
+    <div class="overlay" id="overlay">
       <div class="label"><span id="label">—</span><span class="conf" id="conf"></span></div>
       <div class="bars" id="bars"></div>
     </div>
   </div>
 
   <div class="controls">
-    <button id="startBtn">Bật camera</button>
-    <button id="flipBtn" class="secondary">Đổi camera</button>
+    <!-- realtime -->
+    <button id="startBtn" data-for="realtime">Bật camera</button>
+    <button id="flipBtn" data-for="realtime capture" class="secondary">Đổi camera</button>
+    <!-- capture -->
+    <button id="snapBtn" data-for="capture" class="hidden">📸 Chụp &amp; dự đoán</button>
+    <button id="retakeBtn" data-for="capture" class="secondary hidden">Chụp lại</button>
+    <!-- upload -->
+    <button id="pickBtn" data-for="upload" class="hidden">Chọn ảnh</button>
+    <button id="predictBtn" data-for="upload" class="hidden" disabled>Dự đoán</button>
   </div>
   <div class="meta" id="meta"></div>
 
   <canvas id="canvas" width="336" height="448" style="display:none"></canvas>
+  <input type="file" id="fileInput" accept="image/*" style="display:none" />
 
 <script>
-const video = document.getElementById('video');
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
-const labelEl = document.getElementById('label');
-const confEl = document.getElementById('conf');
-const barsEl = document.getElementById('bars');
-const metaEl = document.getElementById('meta');
-const startBtn = document.getElementById('startBtn');
-const flipBtn = document.getElementById('flipBtn');
+const $ = id => document.getElementById(id);
+const video = $('video'), canvas = $('canvas'), ctx = canvas.getContext('2d');
+const still = $('still'), dropzone = $('dropzone');
+const labelEl = $('label'), confEl = $('conf'), barsEl = $('bars'), metaEl = $('meta');
+const fileInput = $('fileInput');
 
 let stream = null, facing = 'environment', running = false, busy = false;
-const INTERVAL_MS = 500;          // tan suat gui khung hinh (~2 fps)
+let mode = 'realtime';            // realtime | capture | upload
+let uploadFile = null;            // File dang cho du doan o che do upload
+const INTERVAL_MS = 500;          // tan suat gui khung hinh realtime (~2 fps)
 const API = '';                   // cung origin voi API
 
-async function startCamera() {
-  if (stream) stream.getTracks().forEach(t => t.stop());
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: facing }, audio: false
-    });
-    video.srcObject = stream;
-    running = true;
-    startBtn.textContent = 'Đang chạy…';
-    startBtn.disabled = true;
-    loop();
-  } catch (e) {
-    metaEl.textContent = 'Không mở được camera: ' + e.message;
-  }
-}
-
+// ---------- hien thi ket qua ----------
 function drawBars(probs) {
   barsEl.innerHTML = '';
   Object.entries(probs).sort((a,b)=>b[1]-a[1]).forEach(([name, p]) => {
@@ -92,9 +121,34 @@ function drawBars(probs) {
     barsEl.appendChild(row);
   });
 }
+function showResult(j, t0) {
+  labelEl.textContent = j.label;
+  confEl.textContent = (j.confidence * 100).toFixed(1) + '%';
+  drawBars(j.probs);
+  metaEl.textContent = `infer ${j.inference_ms}ms · round-trip ${(performance.now()-t0).toFixed(0)}ms`;
+}
+function clearResult() {
+  labelEl.textContent = '—'; confEl.textContent = ''; barsEl.innerHTML = ''; metaEl.textContent = '';
+}
 
+// ---------- camera ----------
+async function startCamera() {
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: facing }, audio: false
+    });
+    video.srcObject = stream;
+    if (mode === 'realtime') { running = true; $('startBtn').textContent = 'Đang chạy…'; $('startBtn').disabled = true; loop(); }
+  } catch (e) {
+    metaEl.textContent = 'Không mở được camera: ' + e.message;
+  }
+}
+function stopLoop() { running = false; $('startBtn').textContent = 'Bật camera'; $('startBtn').disabled = false; }
+
+// ---------- realtime ----------
 async function loop() {
-  if (!running) return;
+  if (!running || mode !== 'realtime') return;
   if (!busy && video.videoWidth) {
     busy = true;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -105,11 +159,7 @@ async function loop() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ image: dataUrl, topk: 3 })
       });
-      const j = await res.json();
-      labelEl.textContent = j.label;
-      confEl.textContent = (j.confidence * 100).toFixed(1) + '%';
-      drawBars(j.probs);
-      metaEl.textContent = `infer ${j.inference_ms}ms · round-trip ${(performance.now()-t0).toFixed(0)}ms`;
+      showResult(await res.json(), t0);
     } catch (e) {
       metaEl.textContent = 'Lỗi gọi API: ' + e.message;
     } finally { busy = false; }
@@ -117,8 +167,112 @@ async function loop() {
   setTimeout(loop, INTERVAL_MS);
 }
 
-startBtn.onclick = startCamera;
-flipBtn.onclick = () => { facing = facing === 'environment' ? 'user' : 'environment'; if (running) startCamera(); };
+// ---------- chup anh ----------
+async function snapAndPredict() {
+  if (!video.videoWidth) { metaEl.textContent = 'Camera chưa sẵn sàng.'; return; }
+  // Chup o do phan giai goc cua camera cho anh net
+  const snap = document.createElement('canvas');
+  snap.width = video.videoWidth; snap.height = video.videoHeight;
+  snap.getContext('2d').drawImage(video, 0, 0);
+  const dataUrl = snap.toDataURL('image/jpeg', 0.92);
+
+  // Dong bang khung hinh
+  still.src = dataUrl;
+  still.classList.remove('hidden');
+  video.classList.add('hidden');
+  $('snapBtn').classList.add('hidden');
+  $('retakeBtn').classList.remove('hidden');
+
+  metaEl.innerHTML = '<span class="spinner"></span>Đang dự đoán…';
+  try {
+    const t0 = performance.now();
+    const res = await fetch(API + '/predict_base64', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: dataUrl, topk: 3 })
+    });
+    if (!res.ok) throw new Error((await res.json()).detail || res.status);
+    showResult(await res.json(), t0);
+  } catch (e) {
+    metaEl.textContent = 'Lỗi gọi API: ' + e.message;
+  }
+}
+function retake() {
+  still.classList.add('hidden');
+  video.classList.remove('hidden');
+  $('snapBtn').classList.remove('hidden');
+  $('retakeBtn').classList.add('hidden');
+  clearResult();
+}
+
+// ---------- upload ----------
+function setUploadFile(f) {
+  if (!f || !f.type.startsWith('image/')) { metaEl.textContent = 'File không phải ảnh.'; return; }
+  uploadFile = f;
+  still.src = URL.createObjectURL(f);
+  still.classList.remove('hidden');
+  dropzone.classList.add('hidden');
+  $('predictBtn').disabled = false;
+  clearResult();
+  metaEl.textContent = f.name + ' · ' + (f.size/1024).toFixed(0) + ' KB';
+}
+async function predictUpload() {
+  if (!uploadFile) return;
+  metaEl.innerHTML = '<span class="spinner"></span>Đang dự đoán…';
+  $('predictBtn').disabled = true;
+  try {
+    const t0 = performance.now();
+    const fd = new FormData();
+    fd.append('file', uploadFile);
+    // Goi endpoint multipart /predict — giong het cach call tu Postman
+    const res = await fetch(API + '/predict?topk=3', { method: 'POST', body: fd });
+    if (!res.ok) throw new Error((await res.json()).detail || res.status);
+    showResult(await res.json(), t0);
+  } catch (e) {
+    metaEl.textContent = 'Lỗi gọi API: ' + e.message;
+  } finally { $('predictBtn').disabled = false; }
+}
+
+// ---------- chuyen che do ----------
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.mode === m));
+  document.querySelectorAll('.controls button').forEach(b =>
+    b.classList.toggle('hidden', !b.dataset.for.split(' ').includes(m)));
+  clearResult();
+  still.classList.add('hidden');
+  dropzone.classList.add('hidden');
+  video.classList.remove('hidden');
+  uploadFile = null;
+  $('predictBtn').disabled = true;
+  $('retakeBtn').classList.add('hidden');
+  if (m === 'realtime') {
+    stopLoop();
+    if (stream) { running = true; $('startBtn').textContent = 'Đang chạy…'; $('startBtn').disabled = true; loop(); }
+  } else if (m === 'capture') {
+    stopLoop();
+    $('snapBtn').classList.remove('hidden');
+    if (!stream) startCamera();
+  } else { // upload
+    stopLoop();
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; video.srcObject = null; }
+    video.classList.add('hidden');
+    dropzone.classList.remove('hidden');
+  }
+}
+
+// ---------- gan su kien ----------
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => setMode(t.dataset.mode));
+$('startBtn').onclick = startCamera;
+$('flipBtn').onclick = () => { facing = facing === 'environment' ? 'user' : 'environment'; if (stream) startCamera(); };
+$('snapBtn').onclick = snapAndPredict;
+$('retakeBtn').onclick = retake;
+$('pickBtn').onclick = () => fileInput.click();
+$('predictBtn').onclick = predictUpload;
+dropzone.onclick = () => fileInput.click();
+fileInput.onchange = () => setUploadFile(fileInput.files[0]);
+dropzone.ondragover = e => { e.preventDefault(); dropzone.classList.add('dragover'); };
+dropzone.ondragleave = () => dropzone.classList.remove('dragover');
+dropzone.ondrop = e => { e.preventDefault(); dropzone.classList.remove('dragover'); setUploadFile(e.dataTransfer.files[0]); };
 </script>
 </body>
 </html>

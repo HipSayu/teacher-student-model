@@ -2,10 +2,12 @@
 # app.py — API FastAPI phuc vu model_60.pth (student ResNet-50 CAKD, 3 lop).
 # -----------------------------------------------------------------------------
 # Endpoint:
-#   GET  /            -> trang demo camera realtime (deploy/static/index.html)
+#   GET  /            -> trang demo (realtime / chup anh / upload anh)
 #   GET  /health      -> trang thai + metadata model
 #   GET  /classes     -> danh sach lop
-#   POST /predict     -> nhan anh (multipart file HOAC JSON base64) -> nhan du doan
+#   POST /predict     -> upload anh multipart (field 'file') -> nhan du doan (Postman-friendly)
+#   POST /predict_base64 -> JSON {"image": "<base64>"} -> nhan du doan
+#   GET  /docs        -> Swagger UI (test upload truc tiep tren trinh duyet)
 # Chay:  uvicorn app:app --host 0.0.0.0 --port 8000
 # =============================================================================
 import base64
@@ -95,11 +97,18 @@ def classes():
 
 @app.post("/predict")
 async def predict(file: UploadFile = File(...), topk: int = 3):
-    """Suy luan tu file anh gui theo multipart/form-data (field 'file')."""
+    """Suy luan tu file anh upload (multipart/form-data, field **file**).
+
+    Call bang Postman: POST /predict -> Body -> form-data -> key `file` (type File)
+    -> chon anh -> Send. Tham so `topk` truyen qua query string (vd: /predict?topk=3).
+    """
     if classifier is None:
         raise HTTPException(status_code=503, detail="Model dang nap.")
-    img = _decode_image(await file.read())
-    return classifier.predict(img, topk=topk)
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="File rong hoac thieu field 'file'.")
+    img = _decode_image(raw)
+    return classifier.predict(img, topk=max(1, topk))
 
 
 @app.post("/predict_base64")

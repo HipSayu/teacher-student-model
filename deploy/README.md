@@ -14,7 +14,7 @@ Phân loại **3 lớp**: `glass` · `paper` · `plastic` (thứ tự alphabet c
 deploy/
   inference.py        # nạp checkpoint + tiền xử lý + suy luận
   app.py              # FastAPI: /health /classes /predict /predict_base64 + trang demo
-  static/index.html   # demo camera realtime (mở bằng trình duyệt điện thoại)
+  static/index.html   # demo web: realtime / chụp ảnh / upload ảnh
   CAKD/models/        # định nghĩa model (resnet_cakd.py) — vendored, không cần repo gốc
   model_60.pth        # weights (476MB) — bake thẳng vào image
   requirements.txt
@@ -74,7 +74,8 @@ MODEL_PATH=./model_60.pth uvicorn app:app --host 0.0.0.0 --port 8000
 | POST   | `/predict_base64` | JSON `{"image":"<base64|data-uri>","topk":3}` |
 | POST   | `/detect`         | multipart `file=<ảnh>` → nhãn + xác suất + **bounding box** (CAM) |
 | POST   | `/detect_base64`  | JSON `{"image":"...","thresh":0.35}` → như trên |
-| GET    | `/`               | trang demo camera realtime |
+| GET    | `/`               | trang demo: **Realtime** · **Chụp ảnh** · **Upload ảnh** |
+| GET    | `/docs`           | Swagger UI — test upload ảnh ngay trên trình duyệt |
 
 > **`/detect` — bounding box bằng CAM (weakly-supervised localization).** Model là bộ
 > **phân loại**, không phải detector. `/detect` dùng feature map cuối + trọng số lớp `fc`
@@ -86,6 +87,20 @@ Ví dụ:
 
 ```bash
 curl -F "file=@anh_thu.jpg" http://localhost:8000/predict
+```
+
+### Call bằng Postman (upload ảnh)
+
+1. Method **POST**, URL `http://localhost:8000/predict` (thêm `?topk=3` nếu muốn).
+2. Tab **Body** → chọn **form-data**.
+3. Thêm key `file`, đổi type từ *Text* → **File** (dropdown bên phải ô key).
+4. Ở cột Value bấm **Select Files** → chọn ảnh → **Send**.
+
+Tương tự cho `POST /detect` (thêm query `?thresh=0.35` nếu muốn). Với
+`/predict_base64` thì Body → **raw** → JSON:
+
+```json
+{ "image": "<chuỗi base64 của ảnh>", "topk": 3 }
 ```
 
 Kết quả:
