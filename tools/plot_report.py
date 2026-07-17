@@ -254,7 +254,7 @@ def write_summary(runs, out_path):
             "|---|---|---|---|---|---|---|---|"]
     for label, history in runs:
         s = stats(history)
-        kind = "CAKD (teacher→student)" if is_cakd(history) else "Teacher"
+        kind = "CAKD (teacher→student)" if is_cakd(history) else "Thường (chỉ CE)"
         rows.append(
             f"| {label} | {kind} | {s['epochs']} | **{s['best_acc']:.2f}%** | "
             f"{s['best_epoch']} | {s['last_acc']:.2f}% | {s['last_train_acc']:.2f}% | "
