@@ -20,8 +20,8 @@
 
 ## Ô 1 — Clone code (hoặc cập nhật nếu đã clone) + cài einops
 ```bash
-![ -d /kaggle/working/repo ] && (cd /kaggle/working/repo && git pull) \
-  || git clone -b feat/cakd-3class-kaggle https://github.com/HipSayu/teacher-student-model.git /kaggle/working/repo
+![ -d /kaggle/working/repo ] && (cd /kaggle/working/repo && git fetch origin && git checkout resnet18 && git pull) \
+  || git clone -b resnet18 https://github.com/HipSayu/teacher-student-model.git /kaggle/working/repo
 !pip install -q einops
 ```
 > Ô này chạy lại nhiều lần được: chưa có thì clone, có rồi thì `git pull` lấy bản mới nhất.
