@@ -283,3 +283,19 @@ def resnet50_cakd(num_classes=1000, pretrained=False):
         missing, unexpected = model.load_state_dict(sd, strict=False)
         # pca_proj/gl_proj/cls_proj/fc nam trong 'missing' (giu khoi tao) -> hop le
     return model
+
+
+def resnet18_cakd(num_classes=1000, pretrained=False):
+    """Tao ResNet_CAKD-18 (BasicBlock, expansion=1) — student NHE hon resnet50.
+    Khac resnet50 duy nhat o cho: kenh sau layer3 = 256 (thay vi 1024) va sau layer4 = 512
+    (thay vi 2048). pca_proj/gl_proj/cls_proj tu dong bam theo self.inplanes/expansion nen
+    KHONG can chinh gi them; luoi 14x14=196 patch giu nguyen -> khop teacher ViT nhu cu.
+    pretrained=True -> nap backbone ResNet-18 ImageNet (bo fc, strict=False)."""
+    model = ResNet_CAKD(BasicBlock, [2, 2, 2, 2], num_classes=num_classes)
+    if pretrained:
+        from torchvision.models import resnet18, ResNet18_Weights
+        sd = resnet18(weights=ResNet18_Weights.IMAGENET1K_V1).state_dict()
+        sd = {k: v for k, v in sd.items() if not k.startswith("fc.")}  # fc khac so lop
+        missing, unexpected = model.load_state_dict(sd, strict=False)
+        # pca_proj/gl_proj/cls_proj/fc nam trong 'missing' (giu khoi tao) -> hop le
+    return model

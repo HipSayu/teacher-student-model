@@ -2,7 +2,7 @@
 # dist_train_cakd.py — SCRIPT HUẤN LUYỆN CHÍNH của CAKD ("nhạc trưởng")
 # -----------------------------------------------------------------------------
 # File này RÁP mọi thứ lại và chạy training:
-#   - student   = ResNet_CAKD  (resnet50_cakd)  <- con model ta muốn dạy cho giỏi
+#   - student   = ResNet_CAKD  (resnet18_cakd MẶC ĐỊNH / resnet50_cakd, chọn qua --student-arch)
 #   - teacher   = ViT-B/16 pretrain             <- thầy giáo, ĐÓNG BĂNG (eval)
 #   - discriminator = NLayerDiscriminator (GAN) <- "giám khảo" phân biệt attention thật/giả
 #
@@ -39,7 +39,7 @@ from new_utils import RASampler
 from torch import nn
 from torch.utils.data.dataloader import default_collate
 from torchvision.transforms.functional import InterpolationMode
-from models.resnet_cakd import resnet50_cakd  # STUDENT port torch 2.x
+from models.resnet_cakd import resnet18_cakd, resnet50_cakd  # STUDENT port torch 2.x
 from models.vit_cakd import build_teacher      # TEACHER ViT-B/16 port torch 2.x
 
 
@@ -455,9 +455,12 @@ def main(args):
     )
 
     print("Creating model")
-    # >>> STUDENT: ResNet-50 CAKD (port torch 2.x). pretrained=True -> nạp backbone ImageNet
-    #     (bỏ fc, strict=False; pca/gl/cls_proj giữ khởi tạo ngẫu nhiên) <<<
-    model = resnet50_cakd(num_classes=num_classes, pretrained=args.student_pretrained)
+    # >>> STUDENT: ResNet CAKD (port torch 2.x). --student-arch chọn resnet18 (mặc định) / resnet50.
+    #     pretrained=True -> nạp backbone ImageNet tương ứng (bỏ fc, strict=False;
+    #     pca/gl/cls_proj giữ khởi tạo ngẫu nhiên) <<<
+    student_factory = {"resnet18": resnet18_cakd, "resnet50": resnet50_cakd}[args.student_arch]
+    print(f"Student backbone: {args.student_arch}")
+    model = student_factory(num_classes=num_classes, pretrained=args.student_pretrained)
 
     # >>> TEACHER: ViT-B/16 đã fine-tune xuống num_classes lớp (từ GĐ1) <<<
     teacher = build_teacher(num_classes, pretrained=False)  # khung N lớp, chưa trọng số
@@ -999,8 +1002,11 @@ def get_args_parser(add_help=True):
         "--teacher-weights", default="/kaggle/working/teacher_3cls.pth", type=str,
         help="checkpoint teacher đã fine-tune xuống số lớp mục tiêu (từ GĐ1)")
     parser.add_argument(
+        "--student-arch", default="resnet18", choices=["resnet18", "resnet50"],
+        help="kiến trúc backbone cho student CAKD (mặc định resnet18)")
+    parser.add_argument(
         "--student-pretrained", action="store_true",
-        help="nạp ResNet-50 pretrained ImageNet cho student rồi thay fc")
+        help="nạp backbone pretrained ImageNet (theo --student-arch) cho student rồi thay fc")
     parser.add_argument(
         "--distill-start", default=5, type=int,
         help="epoch bắt đầu distill (gốc ImageNet = 25)")
