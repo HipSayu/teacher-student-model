@@ -30,6 +30,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import numpy as np
 import torch
+import torch.nn as nn
 import torchvision
 from sklearn.metrics import (accuracy_score, classification_report,
                              confusion_matrix)
@@ -60,12 +61,31 @@ def _load_state(model, ckpt, prefer_ema):
     return "model"
 
 
+def build_plain(arch, num_classes):
+    """Dung model torchvision THUONG (khong CAKD) cho baseline: output la logits truc tiep."""
+    if arch == "mobilenetv3_small":
+        m = torchvision.models.mobilenet_v3_small(weights=None)
+        m.classifier[3] = nn.Linear(m.classifier[3].in_features, num_classes)
+    elif arch == "resnet18":
+        m = torchvision.models.resnet18(weights=None)
+        m.fc = nn.Linear(m.fc.in_features, num_classes)
+    elif arch == "resnet50":
+        m = torchvision.models.resnet50(weights=None)
+        m.fc = nn.Linear(m.fc.in_features, num_classes)
+    else:
+        raise SystemExit(f"baseline chưa hỗ trợ arch {arch}")
+    return m
+
+
 @torch.inference_mode()
-def collect_preds(model, loader, device):
+def collect_preds(model, loader, device, tuple_output=True):
+    """tuple_output=True: student/teacher CAKD tra 4-tuple, logits o [0].
+    False: model thuong tra thang logits (baseline)."""
     y_true, y_pred = [], []
     for images, targets in loader:
         images = images.to(device, non_blocking=True)
-        logits = model(images)[0]           # student tra 4-tuple, logits o vi tri 0
+        out = model(images)
+        logits = out[0] if tuple_output else out
         preds = logits.argmax(1).cpu()
         y_pred.append(preds)
         y_true.append(targets)
@@ -108,10 +128,10 @@ def main():
     p.add_argument("--checkpoint", required=True,
                    help="checkpoint cần đánh giá (student: results/checkpoint.pth; "
                         "teacher: teacher_3cls.pth)")
-    p.add_argument("--model", default="student", choices=["student", "teacher"],
-                   help="đánh giá student (ResNet CAKD) hay teacher (ViT-B/16)")
+    p.add_argument("--model", default="student", choices=["student", "teacher", "baseline"],
+                   help="đánh giá student (CAKD), teacher (ViT-B/16), hay baseline (model thường không KD)")
     p.add_argument("--student-arch", default="mobilenetv3_small", choices=list(STUDENT),
-                   help="kiến trúc student (bỏ qua nếu --model teacher)")
+                   help="kiến trúc student/baseline (bỏ qua nếu --model teacher)")
     p.add_argument("--weights", default="ema", choices=["ema", "model"],
                    help="student: EMA (mặc định, khớp best) hay model thường. Teacher luôn dùng model")
     p.add_argument("--crop-size", default=224, type=int)
@@ -139,12 +159,20 @@ def main():
 
     # 2) Model + nạp trọng số
     ckpt = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
+    tuple_output = True
     if args.model == "teacher":
         model = build_teacher(len(classes), pretrained=False).to(device)
         model.eval()
         model.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt)
         tag, used = "teacher", "model"
         print(f"Đã nạp teacher ViT-B/16 ({len(classes)} lớp) từ {args.checkpoint}")
+    elif args.model == "baseline":
+        model = build_plain(args.student_arch, len(classes)).to(device)
+        model.eval()
+        model.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt)
+        tuple_output = False   # model thường trả thẳng logits
+        tag, used = f"baseline_{args.student_arch}", "model"
+        print(f"Đã nạp baseline {args.student_arch} (không KD) từ {args.checkpoint}")
     else:
         model = STUDENT[args.student_arch](num_classes=len(classes), pretrained=False).to(device)
         model.eval()
@@ -153,7 +181,7 @@ def main():
         print(f"Đã nạp student {args.student_arch}, trọng số: {used}")
 
     # 3) Inference thu y_true / y_pred
-    y_true, y_pred = collect_preds(model, loader, device)
+    y_true, y_pred = collect_preds(model, loader, device, tuple_output=tuple_output)
 
     # 4) Tính metric
     acc = accuracy_score(y_true, y_pred)
