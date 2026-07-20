@@ -40,9 +40,11 @@ import matplotlib.pyplot as plt
 
 import new_utils
 from models.resnet_cakd import resnet18_cakd, resnet50_cakd
+from models.mobilenet_cakd import mobilenetv3_small_cakd
 from models.vit_cakd import build_teacher
 
-STUDENT = {"resnet18": resnet18_cakd, "resnet50": resnet50_cakd}
+STUDENT = {"resnet18": resnet18_cakd, "resnet50": resnet50_cakd,
+           "mobilenetv3_small": mobilenetv3_small_cakd}
 
 
 def _load_state(model, ckpt, prefer_ema):
@@ -108,7 +110,7 @@ def main():
                         "teacher: teacher_3cls.pth)")
     p.add_argument("--model", default="student", choices=["student", "teacher"],
                    help="đánh giá student (ResNet CAKD) hay teacher (ViT-B/16)")
-    p.add_argument("--student-arch", default="resnet18", choices=list(STUDENT),
+    p.add_argument("--student-arch", default="mobilenetv3_small", choices=list(STUDENT),
                    help="kiến trúc student (bỏ qua nếu --model teacher)")
     p.add_argument("--weights", default="ema", choices=["ema", "model"],
                    help="student: EMA (mặc định, khớp best) hay model thường. Teacher luôn dùng model")

@@ -40,6 +40,7 @@ from torch import nn
 from torch.utils.data.dataloader import default_collate
 from torchvision.transforms.functional import InterpolationMode
 from models.resnet_cakd import resnet18_cakd, resnet50_cakd  # STUDENT port torch 2.x
+from models.mobilenet_cakd import mobilenetv3_small_cakd     # STUDENT sieu nhe (~2.5M)
 from models.vit_cakd import build_teacher      # TEACHER ViT-B/16 port torch 2.x
 
 
@@ -458,7 +459,8 @@ def main(args):
     # >>> STUDENT: ResNet CAKD (port torch 2.x). --student-arch chọn resnet18 (mặc định) / resnet50.
     #     pretrained=True -> nạp backbone ImageNet tương ứng (bỏ fc, strict=False;
     #     pca/gl/cls_proj giữ khởi tạo ngẫu nhiên) <<<
-    student_factory = {"resnet18": resnet18_cakd, "resnet50": resnet50_cakd}[args.student_arch]
+    student_factory = {"resnet18": resnet18_cakd, "resnet50": resnet50_cakd,
+                       "mobilenetv3_small": mobilenetv3_small_cakd}[args.student_arch]
     print(f"Student backbone: {args.student_arch}")
     model = student_factory(num_classes=num_classes, pretrained=args.student_pretrained)
 
@@ -1002,8 +1004,9 @@ def get_args_parser(add_help=True):
         "--teacher-weights", default="/kaggle/working/teacher_3cls.pth", type=str,
         help="checkpoint teacher đã fine-tune xuống số lớp mục tiêu (từ GĐ1)")
     parser.add_argument(
-        "--student-arch", default="resnet18", choices=["resnet18", "resnet50"],
-        help="kiến trúc backbone cho student CAKD (mặc định resnet18)")
+        "--student-arch", default="mobilenetv3_small",
+        choices=["mobilenetv3_small", "resnet18", "resnet50"],
+        help="kiến trúc backbone cho student CAKD (nhánh này mặc định mobilenetv3_small)")
     parser.add_argument(
         "--student-pretrained", action="store_true",
         help="nạp backbone pretrained ImageNet (theo --student-arch) cho student rồi thay fc")
