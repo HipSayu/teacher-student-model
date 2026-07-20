@@ -40,6 +40,7 @@ import matplotlib.pyplot as plt
 
 import new_utils
 from models.resnet_cakd import resnet18_cakd, resnet50_cakd
+from models.vit_cakd import build_teacher
 
 STUDENT = {"resnet18": resnet18_cakd, "resnet50": resnet50_cakd}
 
@@ -102,10 +103,15 @@ def main():
     p = argparse.ArgumentParser(description="Đánh giá chi tiết + ma trận nhầm lẫn từ checkpoint")
     p.add_argument("--data-path", required=True,
                    help="thư mục có val/ dạng ImageFolder (tập test đã copy sang val/)")
-    p.add_argument("--checkpoint", required=True, help="đường dẫn checkpoint.pth")
-    p.add_argument("--student-arch", default="resnet18", choices=list(STUDENT))
+    p.add_argument("--checkpoint", required=True,
+                   help="checkpoint cần đánh giá (student: results/checkpoint.pth; "
+                        "teacher: teacher_3cls.pth)")
+    p.add_argument("--model", default="student", choices=["student", "teacher"],
+                   help="đánh giá student (ResNet CAKD) hay teacher (ViT-B/16)")
+    p.add_argument("--student-arch", default="resnet18", choices=list(STUDENT),
+                   help="kiến trúc student (bỏ qua nếu --model teacher)")
     p.add_argument("--weights", default="ema", choices=["ema", "model"],
-                   help="dùng trọng số EMA (mặc định, khớp best lúc train) hay model thường")
+                   help="student: EMA (mặc định, khớp best) hay model thường. Teacher luôn dùng model")
     p.add_argument("--crop-size", default=224, type=int)
     p.add_argument("--resize-size", default=224, type=int)
     p.add_argument("--batch-size", default=32, type=int)
@@ -130,11 +136,19 @@ def main():
     print(f"Số ảnh: {len(ds)} | Lớp: {classes}")
 
     # 2) Model + nạp trọng số
-    model = STUDENT[args.student_arch](num_classes=len(classes), pretrained=False).to(device)
-    model.eval()
     ckpt = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
-    used = _load_state(model, ckpt, prefer_ema=(args.weights == "ema"))
-    print(f"Đã nạp trọng số: {used} (arch={args.student_arch})")
+    if args.model == "teacher":
+        model = build_teacher(len(classes), pretrained=False).to(device)
+        model.eval()
+        model.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt)
+        tag, used = "teacher", "model"
+        print(f"Đã nạp teacher ViT-B/16 ({len(classes)} lớp) từ {args.checkpoint}")
+    else:
+        model = STUDENT[args.student_arch](num_classes=len(classes), pretrained=False).to(device)
+        model.eval()
+        used = _load_state(model, ckpt, prefer_ema=(args.weights == "ema"))
+        tag = f"student_{args.student_arch}"
+        print(f"Đã nạp student {args.student_arch}, trọng số: {used}")
 
     # 3) Inference thu y_true / y_pred
     y_true, y_pred = collect_preds(model, loader, device)
@@ -161,11 +175,12 @@ def main():
     for i, c in enumerate(classes):
         print(f"{c[:6]:>6}  " + "  ".join(f"{int(v):>6}" for v in cm[i]))
 
-    # 6) Lưu JSON + PNG
-    out_json = os.path.join(args.out_dir, "metrics.json")
+    # 6) Lưu JSON + PNG (tên kèm tag để student/teacher không ghi đè nhau)
+    out_json = os.path.join(args.out_dir, f"metrics_{tag}.json")
     with open(out_json, "w", encoding="utf-8") as f:
         json.dump({
-            "arch": args.student_arch,
+            "model": args.model,
+            "arch": "vit_b_16" if args.model == "teacher" else args.student_arch,
             "weights": used,
             "num_images": len(ds),
             "classes": classes,
@@ -176,7 +191,7 @@ def main():
             "confusion_matrix": cm.tolist(),
         }, f, indent=2, ensure_ascii=False)
     print(f"\nĐã lưu số liệu: {out_json}")
-    plot_confusion(cm, classes, os.path.join(args.out_dir, "confusion_matrix.png"))
+    plot_confusion(cm, classes, os.path.join(args.out_dir, f"confusion_matrix_{tag}.png"))
 
 
 if __name__ == "__main__":

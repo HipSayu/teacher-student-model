@@ -134,25 +134,36 @@ display(Image('/kaggle/working/plot_cakd.png'))       # cakd: loss tổng + 4 lo
 - **Biểu đồ teacher:** 3 panel — Loss (train), Accuracy (train vs val, có best %), Learning rate (log).
 - **Biểu đồ CAKD:** 4 panel — Loss tổng, các loss thành phần `cls/pca/gl/gan` (thang log), Accuracy (best %), Learning rate (log).
 
-## Ô 9 — Metric chi tiết + ma trận nhầm lẫn (precision / recall / f1)
+## Ô 9 — Metric chi tiết + ma trận nhầm lẫn (precision / recall / f1) — CẢ student LẪN teacher
 > File `history_*.json` **chỉ có** accuracy tổng mỗi epoch — KHÔNG đủ để dựng ma trận nhầm lẫn.
 > Ô này chạy **1 lượt inference từ checkpoint** (KHÔNG train lại) trên tập test để tính đầy đủ:
 > accuracy, precision/recall/f1 từng lớp, macro/weighted avg, và ma trận nhầm lẫn.
 > Cần chạy **Ô 6 trước** (nó tạo `/kaggle/working/data_test/val`). `scikit-learn` đã có sẵn trên Kaggle.
 ```python
 %cd /kaggle/working/repo/CAKD
-!python eval_metrics.py \
+# (a) STUDENT ResNet-18 — dùng trọng số EMA (khớp best lúc train)
+!python eval_metrics.py --model student \
   --data-path /kaggle/working/data_test \
   --checkpoint /kaggle/working/results/checkpoint.pth \
   --student-arch resnet18 --weights ema \
   --out-dir /kaggle/working/results
 
+# (b) TEACHER ViT-B/16 — cùng tập test để so sánh
+!python eval_metrics.py --model teacher \
+  --data-path /kaggle/working/data_test \
+  --checkpoint /kaggle/working/teacher_3cls.pth \
+  --out-dir /kaggle/working/results
+
 from IPython.display import Image, display
-display(Image('/kaggle/working/results/confusion_matrix.png'))
+display(Image('/kaggle/working/results/confusion_matrix_student_resnet18.png'))
+display(Image('/kaggle/working/results/confusion_matrix_teacher.png'))
 ```
-- In ra bảng `precision / recall / f1 / support` từng lớp + accuracy tổng + ma trận nhầm lẫn (dạng số).
-- Lưu `results/metrics.json` (mọi số liệu) + `results/confusion_matrix.png` (2 ma trận: counts & chuẩn hoá theo hàng = recall).
-- `--weights ema` khớp đúng số **best** lúc train (vì có `--model-ema`); đổi `--weights model` nếu muốn trọng số thường.
+- Mỗi lần in bảng `precision / recall / f1 / support` từng lớp + accuracy tổng + ma trận nhầm lẫn (dạng số).
+- Lưu riêng, không ghi đè nhau:
+  - Student → `metrics_student_resnet18.json` + `confusion_matrix_student_resnet18.png`
+  - Teacher → `metrics_teacher.json` + `confusion_matrix_teacher.png`
+- Mỗi PNG gồm 2 ma trận: **counts** & **chuẩn hoá theo hàng** (= recall mỗi lớp).
+- Student: `--weights ema` khớp số **best** lúc train (vì có `--model-ema`); đổi `--weights model` nếu muốn trọng số thường. Teacher luôn dùng trọng số `model`.
 
 ---
 
