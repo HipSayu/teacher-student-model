@@ -145,6 +145,8 @@ def get_args_parser(add_help=True):
     p.add_argument("--augmix-severity", default=3, type=int)
     p.add_argument("--ra-sampler", action="store_true")
     p.add_argument("--ra-reps", default=3, type=int)
+    p.add_argument("--data-fraction", default=1.0, type=float,
+                   help="chi dung 1 phan tap train (vd 0.25 = 1/4), chia deu theo lop. Mac dinh 1.0 = full")
     p.add_argument("--weights", default=None, type=str)
     p.add_argument("--world-size", default=1, type=int)
     p.add_argument("--dist-url", default="env://", type=str)
