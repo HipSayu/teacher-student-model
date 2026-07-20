@@ -111,7 +111,7 @@ def run_epoch(model, loader, criterion, device, optimizer=None, scaler=None):
 
 def main():
     p = argparse.ArgumentParser(description="Baseline ResNet-18 thuong (khong distill)")
-    p.add_argument("--data-path", default="/kaggle/input/15k-image-trash/15K_Image")
+    p.add_argument("--data-path", default="/kaggle/input/datasets/triuquct/15k-image-trash/15K_Image")
     p.add_argument("--classes", nargs="+", default=["glass", "paper", "plastic"])
     p.add_argument("--output-dir", default="/kaggle/working/baseline_resnet18")
     p.add_argument("--epochs", type=int, default=30)

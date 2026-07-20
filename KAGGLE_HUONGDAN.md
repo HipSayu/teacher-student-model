@@ -14,7 +14,7 @@
 ## Ô 0 — Xác nhận đường dẫn dataset
 ```bash
 !ls /kaggle/input
-!ls /kaggle/input/15k-image-trash/15K_Image
+!ls /kaggle/input/datasets/triuquct/15k-image-trash/15K_Image
 ```
 → Lệnh thứ 2 phải in ra `glass  paper  plastic`. Nếu path khác, thay lại `--src` ở Ô 2 & Ô 6.
 
@@ -29,7 +29,7 @@
 ## Ô 2 — Reorg ảnh → ImageFolder (bỏ labels/, chỉ lấy ảnh)
 ```bash
 !python /kaggle/working/repo/tools/reorg_to_imagefolder.py \
-  --src /kaggle/input/15k-image-trash/15K_Image \
+  --src /kaggle/input/datasets/triuquct/15k-image-trash/15K_Image \
   --dst /kaggle/working/data_if \
   --classes glass paper plastic --splits train val test
 ```
@@ -82,7 +82,7 @@ Log phải in `pca_loss / gl_loss / cls_loss / gan_loss` (KHÔNG lỗi shape). S
 ## Ô 6 — Đánh giá trên tập test
 ```bash
 !python /kaggle/working/repo/tools/reorg_to_imagefolder.py \
-  --src /kaggle/input/15k-image-trash/15K_Image \
+  --src /kaggle/input/datasets/triuquct/15k-image-trash/15K_Image \
   --dst /kaggle/working/data_test --splits test
 !mkdir -p /kaggle/working/data_test/val && cp -r /kaggle/working/data_test/test/* /kaggle/working/data_test/val/
 %cd /kaggle/working/repo/CAKD
@@ -107,7 +107,7 @@ ck = torch.load("/kaggle/working/results/checkpoint.pth", map_location="cpu", we
 model.load_state_dict(ck["model"])
 tf = ClassificationPresetEval(crop_size=224, resize_size=224)
 
-folder = "/kaggle/input/15k-image-trash/15K_Image/glass/test/images"
+folder = "/kaggle/input/datasets/triuquct/15k-image-trash/15K_Image/glass/test/images"
 fname = sorted(os.listdir(folder))[0]
 img = tf(Image.open(os.path.join(folder, fname)).convert("RGB")).unsqueeze(0).cuda()
 with torch.inference_mode():
@@ -131,8 +131,28 @@ from IPython.display import Image, display
 display(Image('/kaggle/working/plot_teacher.png'))   # teacher: loss + accuracy
 display(Image('/kaggle/working/plot_cakd.png'))       # cakd: loss tổng + 4 loss thành phần + accuracy
 ```
-- **Biểu đồ teacher:** 2 panel — Loss (train), Accuracy (train vs val).
-- **Biểu đồ CAKD:** 3 panel — Loss tổng, các loss thành phần `cls/pca/gl/gan` (thang log), Accuracy (train vs val).
+- **Biểu đồ teacher:** 3 panel — Loss (train), Accuracy (train vs val, có best %), Learning rate (log).
+- **Biểu đồ CAKD:** 4 panel — Loss tổng, các loss thành phần `cls/pca/gl/gan` (thang log), Accuracy (best %), Learning rate (log).
+
+## Ô 9 — Metric chi tiết + ma trận nhầm lẫn (precision / recall / f1)
+> File `history_*.json` **chỉ có** accuracy tổng mỗi epoch — KHÔNG đủ để dựng ma trận nhầm lẫn.
+> Ô này chạy **1 lượt inference từ checkpoint** (KHÔNG train lại) trên tập test để tính đầy đủ:
+> accuracy, precision/recall/f1 từng lớp, macro/weighted avg, và ma trận nhầm lẫn.
+> Cần chạy **Ô 6 trước** (nó tạo `/kaggle/working/data_test/val`). `scikit-learn` đã có sẵn trên Kaggle.
+```python
+%cd /kaggle/working/repo/CAKD
+!python eval_metrics.py \
+  --data-path /kaggle/working/data_test \
+  --checkpoint /kaggle/working/results/checkpoint.pth \
+  --student-arch resnet18 --weights ema \
+  --out-dir /kaggle/working/results
+
+from IPython.display import Image, display
+display(Image('/kaggle/working/results/confusion_matrix.png'))
+```
+- In ra bảng `precision / recall / f1 / support` từng lớp + accuracy tổng + ma trận nhầm lẫn (dạng số).
+- Lưu `results/metrics.json` (mọi số liệu) + `results/confusion_matrix.png` (2 ma trận: counts & chuẩn hoá theo hàng = recall).
+- `--weights ema` khớp đúng số **best** lúc train (vì có `--model-ema`); đổi `--weights model` nếu muốn trọng số thường.
 
 ---
 
