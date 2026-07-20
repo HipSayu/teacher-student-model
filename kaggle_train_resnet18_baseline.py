@@ -21,6 +21,7 @@ import json
 import os
 import time
 
+import numpy as np
 import torch
 from PIL import Image
 from torch import nn
@@ -57,6 +58,20 @@ class TrashDataset(Dataset):
         return self.transform(img), label
 
 
+def _subset_by_fraction(ds, fraction, seed=42):
+    """Lay 1 phan tap train, CHIA DEU theo lop (stratified), tat dinh theo seed."""
+    targets = np.asarray([lab for _, lab in ds.samples])
+    rng = np.random.RandomState(seed)
+    keep = []
+    for c in np.unique(targets):
+        idx = np.where(targets == c)[0]
+        rng.shuffle(idx)
+        n = max(1, int(round(len(idx) * fraction)))
+        keep.extend(idx[:n].tolist())
+    ds.samples = [ds.samples[i] for i in sorted(keep)]
+    return ds
+
+
 def build_loaders(args):
     # Augment chuan cho finetune ImageNet-pretrained (muc "binh thuong", khong ta_wide/mixup)
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
@@ -75,6 +90,10 @@ def build_loaders(args):
     loaders = {}
     for split, tf, shuffle in [("train", train_tf, True), ("val", eval_tf, False), ("test", eval_tf, False)]:
         ds = TrashDataset(args.data_path, split, args.classes, tf)
+        if split == "train" and args.data_fraction < 1.0:
+            before = len(ds)
+            ds = _subset_by_fraction(ds, args.data_fraction)
+            print(f"  train: chi dung {args.data_fraction:.0%} ({before} -> {len(ds)} anh)")
         loaders[split] = DataLoader(ds, batch_size=args.batch_size, shuffle=shuffle,
                                     num_workers=args.workers, pin_memory=True)
         print(f"  {split:5s}: {len(ds)} anh")
@@ -121,6 +140,8 @@ def main():
     p.add_argument("--weight-decay", type=float, default=1e-4)
     p.add_argument("--workers", type=int, default=2)
     p.add_argument("--img-size", type=int, default=224)
+    p.add_argument("--data-fraction", type=float, default=1.0,
+                   help="chi dung 1 phan tap train (vd 0.1 = 10%), chia deu theo lop")
     p.add_argument("--no-pretrained", action="store_true", help="train tu dau (mac dinh: nap ImageNet)")
     args = p.parse_args()
 
