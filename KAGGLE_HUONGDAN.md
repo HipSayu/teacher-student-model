@@ -79,8 +79,23 @@ tốt **trước khi** sang Ô 5.
 ```
 Log phải in `pca_loss / gl_loss / cls_loss / gan_loss` (KHÔNG lỗi shape). Sinh `results/checkpoint.pth`.
 
-> ⚠️ 120 epoch trên 15K ảnh / 1 GPU khá lâu (nhiều giờ). Muốn nhanh: giảm `--epochs 40 --distill-start 8
-> --distill-ramp 16 --lr 0.01` (vẫn giữ đúng phương pháp, chỉ rút ngắn lịch huấn luyện).
+> ⚠️ 120 epoch trên 15K ảnh / 1 GPU khá lâu (nhiều giờ). Muốn nhanh:
+> - **Chạy 1/4 dữ liệu:** thêm `--data-fraction 0.25` (chỉ lấy 1/4 tập TRAIN, **chia đều theo lớp**;
+>   val giữ nguyên để accuracy vẫn trung thực). Mỗi epoch nhanh ~4×. Dùng `0.5` cho 1/2, v.v.
+> - **Rút ngắn lịch:** giảm `--epochs 40 --distill-start 8 --distill-ramp 16 --lr 0.01`
+>   (vẫn giữ đúng phương pháp, chỉ rút ngắn số epoch).
+>
+> Ví dụ chạy nhẹ (1/4 data + 40 epoch) — thêm 2 cờ vào lệnh Ô 5:
+> ```bash
+> !PYTHONUNBUFFERED=1 torchrun --nproc_per_node=1 dist_train_cakd.py \
+>   --data-path /kaggle/working/data_if --teacher-weights /kaggle/working/teacher_3cls.pth \
+>   --student-arch mobilenetv3_small --student-pretrained --workers 4 \
+>   --data-fraction 0.25 --batch-size 32 --lr 0.01 \
+>   --auto-augment ta_wide --epochs 40 --random-erase 0.1 --mixup-alpha 0.2 \
+>   --weight-decay 0.00002 --norm-weight-decay 0.0 --label-smoothing 0.1 \
+>   --distill-start 8 --distill-ramp 16 --model-ema --ra-sampler --ra-reps 4 --amp \
+>   --output-dir /kaggle/working/results
+> ```
 
 ## Ô 6 — Đánh giá trên tập test
 ```bash

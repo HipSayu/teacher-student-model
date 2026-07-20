@@ -311,6 +311,24 @@ def _get_cache_path(filepath):
     return cache_path
 
 
+def _subset_by_fraction(dataset, fraction, seed=42):
+    """Lấy 1 phần dataset (vd fraction=0.25 -> 1/4), CHIA ĐỀU theo lớp (stratified) để không
+    lệch phân bố. Tất định theo seed. Trả về Subset, gắn lại .classes để num_classes vẫn tính được."""
+    import numpy as np
+    targets = np.asarray(dataset.targets)
+    rng = np.random.RandomState(seed)
+    keep = []
+    for c in np.unique(targets):
+        idx = np.where(targets == c)[0]
+        rng.shuffle(idx)
+        n = max(1, int(round(len(idx) * fraction)))   # mỗi lớp giữ ít nhất 1 ảnh
+        keep.extend(idx[:n].tolist())
+    keep.sort()
+    subset = torch.utils.data.Subset(dataset, keep)
+    subset.classes = dataset.classes   # giữ để len(dataset.classes) ở main() không lỗi
+    return subset
+
+
 def load_data(traindir, valdir, args):
     # Nạp dữ liệu train + validation, trả về dataset và sampler tương ứng
     print("Loading data")
@@ -351,6 +369,14 @@ def load_data(traindir, valdir, args):
             new_utils.mkdir(os.path.dirname(cache_path))
             new_utils.save_on_master((dataset, traindir), cache_path)
     print("Took", time.time() - st)
+
+    # Chỉ dùng 1 phần tập TRAIN cho nhanh (vd --data-fraction 0.25 = 1/4). Val giữ nguyên
+    # để accuracy vẫn đánh giá trung thực.
+    frac = getattr(args, "data_fraction", 1.0)
+    if frac < 1.0:
+        before = len(dataset)
+        dataset = _subset_by_fraction(dataset, frac)
+        print(f"Chỉ dùng {frac:.0%} tập TRAIN (chia đều theo lớp): {before} -> {len(dataset)} ảnh")
 
     print("Loading validation data")
     cache_path = _get_cache_path(valdir)
@@ -1007,6 +1033,9 @@ def get_args_parser(add_help=True):
         "--student-arch", default="mobilenetv3_small",
         choices=["mobilenetv3_small", "resnet18", "resnet50"],
         help="kiến trúc backbone cho student CAKD (nhánh này mặc định mobilenetv3_small)")
+    parser.add_argument(
+        "--data-fraction", default=1.0, type=float,
+        help="chỉ dùng 1 phần tập TRAIN cho nhanh (vd 0.25 = 1/4 data, chia đều theo lớp). Mặc định 1.0 = full")
     parser.add_argument(
         "--student-pretrained", action="store_true",
         help="nạp backbone pretrained ImageNet (theo --student-arch) cho student rồi thay fc")
