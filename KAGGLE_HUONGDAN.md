@@ -32,7 +32,7 @@
 ## Ô 1 — Xác nhận đường dẫn dataset
 ```bash
 !ls /kaggle/input
-!ls /kaggle/input/datasets/triuquct/15k-image-trash/15K_Image
+!ls /kaggle/input/datasets/hieppn/15k-data/15K_Image
 ```
 → Lệnh thứ 2 phải in `glass  paper  plastic`. Nếu path khác, sửa lại `--data-path`/`--src` ở các ô dưới.
 
@@ -47,7 +47,7 @@
 ## Ô 3 — Reorg ảnh → ImageFolder (cho teacher + CAKD)
 ```bash
 !python /kaggle/working/repo/tools/reorg_to_imagefolder.py \
-  --src /kaggle/input/datasets/triuquct/15k-image-trash/15K_Image \
+  --src /kaggle/input/datasets/hieppn/15k-data/15K_Image \
   --dst /kaggle/working/data_if \
   --classes glass paper plastic --splits train val test
 ```
@@ -55,7 +55,7 @@
 ## Ô 4 — Chuẩn bị tập TEST để đánh giá (dùng chung cho cả 3 mốc)
 ```bash
 !python /kaggle/working/repo/tools/reorg_to_imagefolder.py \
-  --src /kaggle/input/datasets/triuquct/15k-image-trash/15K_Image \
+  --src /kaggle/input/datasets/hieppn/15k-data/15K_Image \
   --dst /kaggle/working/data_test --splits test
 !mkdir -p /kaggle/working/data_test/val && cp -r /kaggle/working/data_test/test/* /kaggle/working/data_test/val/
 ```
@@ -75,7 +75,7 @@
 ## Ô 6 — Train baseline ResNet18
 ```bash
 !python /kaggle/working/repo/kaggle_train_resnet18_baseline.py \
-  --data-path /kaggle/input/datasets/triuquct/15k-image-trash/15K_Image \
+  --data-path /kaggle/input/datasets/hieppn/15k-data/15K_Image \
   --epochs 30 --batch-size 32 --lr 0.01 \
   --data-fraction 0.1 \
   --output-dir /kaggle/working/baseline_resnet18
@@ -178,17 +178,30 @@ display(Image('/kaggle/working/plot_cakd.png'))
 ```
 - 4 panel: Loss tổng, các loss thành phần `cls/pca/gl/gan` (log), Accuracy (best %), Learning rate (log).
 
-## Ô 14 — Metric + ma trận nhầm lẫn trên TEST (student CAKD)
+## Ô 14 — Metric + ma trận nhầm lẫn trên TEST (student CAKD) — CHẤM CẢ `model` LẪN `ema`
+> ⚠️ Số accuracy trong biểu đồ train (vd 95.4) là của trọng số **`model` (thường)** trên **val**.
+> Checkpoint lưu cả `model` lẫn `model_ema` → nên chấm **cả hai** trên test rồi lấy cái cao hơn để báo cáo.
 ```python
 %cd /kaggle/working/repo/CAKD
-!python eval_metrics.py --model student --student-arch resnet18 --weights ema \
+# (a) trọng số MODEL thường (đúng model cho ra số trong biểu đồ)
+!python eval_metrics.py --model student --student-arch resnet18 --weights model \
   --data-path /kaggle/working/data_test \
   --checkpoint /kaggle/working/results/checkpoint.pth \
   --out-dir /kaggle/working/results
+# (b) trọng số EMA
+!python eval_metrics.py --model student --student-arch resnet18 --weights ema \
+  --data-path /kaggle/working/data_test \
+  --checkpoint /kaggle/working/results/checkpoint.pth \
+  --out-dir /kaggle/working/results_ema
+
 from IPython.display import Image, display
-display(Image('/kaggle/working/results/confusion_matrix_student_resnet18.png'))
+print("===== MODEL thường ====="); display(Image('/kaggle/working/results/confusion_matrix_student_resnet18.png'))
+print("===== EMA ====="); display(Image('/kaggle/working/results_ema/confusion_matrix_student_resnet18.png'))
 ```
-→ Lưu `results/metrics_student_resnet18.json`. `--weights ema` khớp best lúc train (có `--model-ema`).
+- **(a)** → `results/metrics_student_resnet18.json` (trọng số `model`) — dùng cái này cho Ô 15.
+- **(b)** → `results_ema/metrics_student_resnet18.json` (trọng số `ema`).
+- Nhìn 2 dòng `=== Accuracy tổng: XX% ===` in ra, **lấy cái cao hơn** làm số KD báo cáo.
+  Nếu **EMA cao hơn**, ở Ô 15 đổi đường dẫn student sang `results_ema/metrics_student_resnet18.json`.
 
 ---
 
@@ -207,6 +220,8 @@ display(Image('/kaggle/working/compare.png'))
 - In **bảng**: accuracy, macro-P/R/F1 + F1 từng lớp cho cả 3 model.
 - Biểu đồ: (trái) Accuracy & macro-F1 mỗi model; (phải) F1 từng lớp nhóm theo model.
 - **Đọc kết quả:** so **ResNet18 (CAKD, 100%)** với **ResNet18 (baseline, 10%)** và **ViT (teacher, 100%)**.
+- Ô này đang lấy student = trọng số **`model`** (`results/...`). Nếu ở Ô 14 thấy **EMA cao hơn**, đổi dòng
+  student thành `/kaggle/working/results_ema/metrics_student_resnet18.json`.
 
 ---
 
@@ -215,11 +230,14 @@ display(Image('/kaggle/working/compare.png'))
 |---|---|---|---|---|
 | Baseline | `baseline_resnet18/resnet18_baseline_best.pth` | `baseline_resnet18/history_resnet18_baseline.json` | `results/metrics_baseline_resnet18.json` | `results/confusion_matrix_baseline_resnet18.png` |
 | Teacher | `teacher_3cls_best.pth` | `history_teacher.json` | `results/metrics_teacher.json` | `results/confusion_matrix_teacher.png` |
-| KD | `results/checkpoint.pth` | `results/history_cakd.json` | `results/metrics_student_resnet18.json` | `results/confusion_matrix_student_resnet18.png` |
+| KD (model) | `results/checkpoint.pth` | `results/history_cakd.json` | `results/metrics_student_resnet18.json` | `results/confusion_matrix_student_resnet18.png` |
+| KD (ema) | `results/checkpoint.pth` | — | `results_ema/metrics_student_resnet18.json` | `results_ema/confusion_matrix_student_resnet18.png` |
 
 ## Ghi chú kỹ thuật
 - **3 mốc dùng chung tập test** `data_test/val` + cùng preprocessing trong `eval_metrics.py` → so sánh công bằng.
-- **Số trong lúc train** (log/biểu đồ) là trên tập **val**; **số trên test** chỉ có ở ô eval (Ô 8/11/14).
+- **Số trong lúc train** (log/biểu đồ) là trên tập **val** và của trọng số **`model` (thường)**, KHÔNG phải EMA
+  (EMA chỉ in ra màn hình, không ghi history). Vì vậy khi eval KD nên chấm cả `--weights model` lẫn `--weights ema`
+  (Ô 14) — muốn khớp lại số biểu đồ thì dùng `--weights model`. **Số trên test** chỉ có ở ô eval (Ô 8/11/14).
 - **Đổi % data:** cờ `--data-fraction` (0.1 = 10%, 1.0 = full; **bỏ cờ = full**), stratified chia đều theo lớp, val giữ nguyên.
 - **Đổi backbone student:** `--student-arch resnet18|resnet50|mobilenetv3_small` (đổi khớp ở ô train, eval, tên file confusion).
 - **λ (lịch distill):** `min(max(epoch-25,0)/50, 0.2)` qua `--distill-start 25 --distill-ramp 50`.
